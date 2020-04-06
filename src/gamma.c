@@ -1,12 +1,69 @@
 #include "gamma.h"
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+/**
+ * Struktura przechowująca stan pola.
+ */
+struct field {
+    uint32_t player;
+    uint64_t area;
+    uint8_t flags;
+};
+
+typedef uint32_t field_flag_t;
+const field_flag_t EMPTY_FIELD_FLAG = 1u << 0u;
+const field_flag_t FIELD_VISITED_MASK = 1u << 1u;
+const field_flag_t FIELD_AREA_VALID_MASK = 1u << 2u;
 
 /**
  * Struktura przechowująca stan gry.
  */
-struct gamma {};
+struct gamma {
+    uint32_t max_areas;
+    uint32_t players;
+    uint32_t height;
+    uint32_t width;
+    uint64_t occupied_fields;
+
+    field_flag_t field_visited_expected_flag;
+    field_flag_t field_area_valid_expected_flag;
+
+    uint64_t *players_border_fields;
+    field_t **board;
+};
+
+field_t **allocate_board(uint32_t width, uint32_t height) {
+    field_t **board = malloc(height * sizeof(field_t *));
+    if (board == NULL) {
+        return NULL;
+    }
+
+    uint32_t allocated_rows = 0;
+    for (; allocated_rows < height; allocated_rows++) {
+        board[allocated_rows] = malloc(width * sizeof(field_t));
+        if (board[allocated_rows] == NULL) {
+            break;
+        }
+        for(uint32_t i = 0; i < width; i++) {
+            board[allocated_rows][i].flags = EMPTY_FIELD_FLAG;
+        }
+    }
+
+    if (allocated_rows == height) {
+        return board;
+    }
+
+    for (uint32_t row = 0; row < allocated_rows; row++) {
+        free(board[row]);
+    }
+    free(board);
+
+    return NULL;
+}
 
 /** @brief Tworzy strukturę przechowującą stan gry.
  * Alokuje pamięć na nową strukturę przechowującą stan gry.
@@ -19,8 +76,41 @@ struct gamma {};
  * @return Wskaźnik na utworzoną strukturę lub NULL, gdy nie udało się
  * zaalokować pamięci lub któryś z parametrów jest niepoprawny.
  */
-gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players,
-                   uint32_t areas) {
+gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t areas) {
+    if (width == 0 || height == 0 || players == 0 || areas == 0) {
+        return NULL;
+    }
+
+    gamma_t *game = malloc(sizeof(gamma_t));
+    if (game == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    game->width = width;
+    game->height = height;
+    game->max_areas = areas;
+    game->players = players;
+
+    game->occupied_fields = 0;
+    game->field_visited_expected_flag = FIELD_VISITED_MASK;
+    game->field_area_valid_expected_flag = FIELD_AREA_VALID_MASK;
+
+    game->players_border_fields = malloc(players * sizeof(uint64_t));
+    if (game->players_border_fields != NULL) {
+        memset(game->players_border_fields, 0, players);
+
+        game->board = allocate_board(width, height);
+        if (game->board != NULL) {
+            return game;
+        }
+
+        free(game->players_border_fields);
+    }
+
+
+    free(game);
+    errno = ENOMEM;
     return NULL;
 }
 
@@ -30,6 +120,9 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players,
  * @param[in] g       – wskaźnik na usuwaną strukturę.
  */
 void gamma_delete(gamma_t *g) {
+    if (g == NULL) {
+        return;
+    }
 }
 
 /** @brief Wykonuje ruch.
@@ -45,6 +138,10 @@ void gamma_delete(gamma_t *g) {
  * gdy ruch jest nielegalny lub któryś z parametrów jest niepoprawny.
  */
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+    if (g == NULL || player == 0 || player > g->players) {
+        return false;
+    }
+
     return false;
 }
 
@@ -63,6 +160,10 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
  * lub któryś z parametrów jest niepoprawny.
  */
 bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+    if (g == NULL || player == 0 || player > g->players) {
+        return false;
+    }
+
     return false;
 }
 
@@ -75,6 +176,10 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
  * jeśli któryś z parametrów jest niepoprawny.
  */
 uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
+    if (g == NULL || player == 0 || player > g->players) {
+        return 0;
+    }
+
     return 0;
 }
 
@@ -88,6 +193,10 @@ uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
  * jeśli któryś z parametrów jest niepoprawny.
  */
 uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
+    if (g == NULL || player == 0 || player > g->players) {
+        return 0;
+    }
+
     return 0;
 }
 
@@ -102,6 +211,10 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
  * a @p false w przeciwnym przypadku.
  */
 bool gamma_golden_possible(gamma_t *g, uint32_t player) {
+    if (g == NULL || player == 0 || player > g->players) {
+        return false;
+    }
+
     return false;
 }
 
