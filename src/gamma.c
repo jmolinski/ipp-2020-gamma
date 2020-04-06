@@ -1,21 +1,11 @@
 #include "gamma.h"
+#include "board.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #define ASCII_ZERO 48
-
-/**
- * Struktura przechowująca stan pola.
- */
-struct field {
-    uint32_t player;
-    uint64_t area;
-    uint8_t flags;
-    field_t *parent; // for find-union algorithm
-    uint64_t size;   // for find-union algorithm
-};
 
 /**
  * Struktura przechowująca stan gracza.
@@ -26,11 +16,6 @@ struct player {
     uint32_t areas;
     bool golden_move_done;
 };
-
-typedef uint8_t field_flag_t;
-const field_flag_t EMPTY_FIELD_FLAG = 1u << 0u;
-const field_flag_t FIELD_VISITED_MASK = 1u << 1u;
-const field_flag_t FIELD_AREA_VALID_MASK = 1u << 2u;
 
 /**
  * Struktura przechowująca stan gry.
@@ -45,42 +30,10 @@ struct gamma {
     uint64_t next_area;
 
     field_flag_t field_visited_expected_flag;
-    field_flag_t field_area_valid_expected_flag;
 
     player_t *players;
     field_t **board;
 };
-
-field_t **allocate_board(uint32_t width, uint32_t height) {
-    field_t **board = malloc(height * sizeof(field_t *));
-    if (board == NULL) {
-        return NULL;
-    }
-
-    uint32_t allocated_rows = 0;
-    for (; allocated_rows < height; allocated_rows++) {
-        board[allocated_rows] = malloc((uint64_t)width * sizeof(field_t));
-        if (board[allocated_rows] == NULL) {
-            break;
-        }
-        for (uint32_t i = 0; i < width; i++) {
-            board[allocated_rows][i].flags = EMPTY_FIELD_FLAG;
-            board[allocated_rows][i].parent = &board[allocated_rows][i];
-            board[allocated_rows][i].size = 1;
-        }
-    }
-
-    if (allocated_rows == height) {
-        return board;
-    }
-
-    for (uint32_t row = 0; row < allocated_rows; row++) {
-        free(board[row]);
-    }
-    free(board);
-
-    return NULL;
-}
 
 /** @brief Tworzy strukturę przechowującą stan gry.
  * Alokuje pamięć na nową strukturę przechowującą stan gry.
@@ -113,7 +66,6 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     game->next_area = 0;
 
     game->field_visited_expected_flag = FIELD_VISITED_MASK;
-    game->field_area_valid_expected_flag = FIELD_AREA_VALID_MASK;
 
     game->players = calloc(players, sizeof(player_t));
     if (game->players != NULL) {
@@ -343,12 +295,12 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
  * @brief Zmienia liczbę w napis.
  * Zapisuje cyfry zadanej liczby nieujemnej jako znaki w buforze.
  * Bufor musi być odpowiedio dlugi aby pomieścić wszystkie cyfry.
- * @param[in] buffer - bufor do którego zapisany ma zostać wynik.
+ * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik.
  * @param[in] n - liczba do skonwertowania.
  * @return Liczba zapisanych bajtów.
  */
-int uint_to_string(char* buffer, uint32_t n) {
-    char digits[11];  // max_len = round(log10(2^32)) = 10
+static inline int uint_to_string(char *buffer, uint32_t n) {
+    char digits[11]; // max_len = round(log10(2^32)) = 10
     uint8_t written = 0;
 
     do {
@@ -357,8 +309,8 @@ int uint_to_string(char* buffer, uint32_t n) {
         n /= 10;
     } while (n != 0);
 
-    for(int p = written - 1; p >= 0; p--) {
-        *buffer++ = digits[p];
+    for (int p = written - 1; p >= 0; p--) {
+        *buffer++ = ASCII_ZERO + digits[p];
     }
 
     return written;
@@ -382,16 +334,16 @@ char *gamma_board(gamma_t *g) {
     // and player numbers longer than 1 char (will be reallocated if needed)
     uint64_t allocated_space = (total_fields + g->height + 100) * sizeof(char);
     char *str = malloc(allocated_space); // +1 for \0
-    if(str == NULL) {
+    if (str == NULL) {
         errno = ENOMEM;
         return NULL;
     }
 
     uint64_t pos = 0;
-    for(uint64_t field = 0; field < total_fields; field++){
-        uint32_t x = field / g->height;
+    for (uint64_t field = 0; field < total_fields; field++) {
+        uint32_t x = g->height - (field / g->height) - 1;
         uint32_t y = field % g->width;
-        
+
         const uint64_t left_buffer_space = allocated_space - pos;
         if (left_buffer_space < 50) { // max needed for 1 field is 33 bytes
             allocated_space = allocated_space + (total_fields - field) + 50;
@@ -402,19 +354,17 @@ char *gamma_board(gamma_t *g) {
             }
         }
 
-        if(y == 0 && x != 0) {
+        if (y == 0 && x != g->height - 1) {
             str[pos++] = '\n';
         }
 
-        if(g->board[x][y].flags & EMPTY_FIELD_FLAG) {
+        if (g->board[x][y].flags & EMPTY_FIELD_FLAG) {
             str[pos++] = '.';
-        }
-        else {
+        } else {
             uint32_t player = g->board[x][y].player;
             if (player < 10) {
                 str[pos++] = ASCII_ZERO + player;
-            }
-            else {
+            } else {
                 str[pos++] = '[';
                 pos += uint_to_string(str, player);
                 str[pos++] = ']';
@@ -422,5 +372,9 @@ char *gamma_board(gamma_t *g) {
         }
     }
 
-    return NULL;
+    str[pos++] = '\n';
+    str[pos++] = '\0';
+    str = realloc(str, pos + 1); // cut the remaining buffer space
+
+    return str;
 }
