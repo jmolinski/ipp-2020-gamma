@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
+
+#define ASCII_ZERO 48
 
 /**
  * Struktura przechowująca stan pola.
@@ -106,10 +107,8 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     game->field_visited_expected_flag = FIELD_VISITED_MASK;
     game->field_area_valid_expected_flag = FIELD_AREA_VALID_MASK;
 
-    game->players = malloc(players * sizeof(player_t));
+    game->players = calloc(players, sizeof(player_t));
     if (game->players != NULL) {
-        memset(game->players, 0, players * sizeof(player_t));
-
         game->board = allocate_board(width, height);
         if (game->board != NULL) {
             return game;
@@ -254,6 +253,31 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
     return false;
 }
 
+/**
+ * @brief Zmienia liczbę w napis.
+ * Zapisuje cyfry zadanej liczby nieujemnej jako znaki w buforze.
+ * Bufor musi być odpowiedio dlugi aby pomieścić wszystkie cyfry.
+ * @param[in] buffer - bufor do którego zapisany ma zostać wynik.
+ * @param[in] n - liczba do skonwertowania.
+ * @return Liczba zapisanych bajtów.
+ */
+int uint_to_string(char* buffer, uint32_t n) {
+    char digits[11];  // max_len = round(log10(2^32)) = 10
+    uint8_t written = 0;
+
+    do {
+        // this writes the digits in reversed order
+        digits[written++] = n % 10;
+        n /= 10;
+    } while (n != 0);
+
+    for(int p = written - 1; p >= 0; p--) {
+        *buffer++ = digits[p];
+    }
+
+    return written;
+}
+
 /** @brief Daje napis opisujący stan planszy.
  * Alokuje w pamięci bufor, w którym umieszcza napis zawierający tekstowy
  * opis aktualnego stanu planszy. Przykład znajduje się w pliku gamma_test.c.
@@ -266,5 +290,51 @@ char *gamma_board(gamma_t *g) {
     if (g == NULL) {
         return NULL;
     }
+
+    const uint64_t total_fields = (g->width) * g->height;
+    // + g->height to account for newlines, +100 is just some extra space for \0
+    // and player numbers longer than 1 char (will be reallocated if needed)
+    uint64_t allocated_space = (total_fields + g->height + 100) * sizeof(char);
+    char *str = malloc(allocated_space); // +1 for \0
+    if(str == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    uint64_t pos = 0;
+    for(uint64_t field = 0; field < total_fields; field++){
+        uint32_t x = field / g->height;
+        uint32_t y = field % g->width;
+        
+        const uint64_t left_buffer_space = allocated_space - pos;
+        if (left_buffer_space < 50) { // max needed for 1 field is 33 bytes
+            allocated_space = allocated_space + (total_fields - field) + 50;
+            str = realloc(str, allocated_space);
+            if (str == NULL) {
+                errno = ENOMEM;
+                return NULL;
+            }
+        }
+
+        if(y == 0 && x != 0) {
+            str[pos++] = '\n';
+        }
+
+        if(g->board[x][y].flags & EMPTY_FIELD_FLAG) {
+            str[pos++] = '.';
+        }
+        else {
+            uint32_t player = g->board[x][y].player;
+            if (player < 10) {
+                str[pos++] = ASCII_ZERO + player;
+            }
+            else {
+                str[pos++] = '[';
+                pos += uint_to_string(str, player);
+                str[pos++] = ']';
+            }
+        }
+    }
+
     return NULL;
 }
