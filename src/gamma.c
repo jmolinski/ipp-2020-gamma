@@ -48,7 +48,7 @@ field_t **allocate_board(uint32_t width, uint32_t height) {
         if (board[allocated_rows] == NULL) {
             break;
         }
-        for(uint32_t i = 0; i < width; i++) {
+        for (uint32_t i = 0; i < width; i++) {
             board[allocated_rows][i].flags = EMPTY_FIELD_FLAG;
         }
     }
@@ -108,7 +108,6 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
         free(game->players_border_fields);
     }
 
-
     free(game);
     errno = ENOMEM;
     return NULL;
@@ -123,6 +122,13 @@ void gamma_delete(gamma_t *g) {
     if (g == NULL) {
         return;
     }
+
+    for (uint32_t row = 0; row < g->height; row++) {
+        free(g->board[row]);
+    }
+    free(g->board);
+    free(g->players_border_fields);
+    free(g);
 }
 
 /** @brief Wykonuje ruch.
@@ -227,5 +233,8 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
  * planszy lub NULL, jeśli nie udało się zaalokować pamięci.
  */
 char *gamma_board(gamma_t *g) {
+    if (g == NULL) {
+        return NULL;
+    }
     return NULL;
 }
