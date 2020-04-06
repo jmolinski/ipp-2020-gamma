@@ -13,6 +13,8 @@ struct field {
     uint32_t player;
     uint64_t area;
     uint8_t flags;
+    field_t *parent; // for find-union algorithm
+    uint64_t size;   // for find-union algorithm
 };
 
 /**
@@ -25,7 +27,7 @@ struct player {
     bool golden_move_done;
 };
 
-typedef uint32_t field_flag_t;
+typedef uint8_t field_flag_t;
 const field_flag_t EMPTY_FIELD_FLAG = 1u << 0u;
 const field_flag_t FIELD_VISITED_MASK = 1u << 1u;
 const field_flag_t FIELD_AREA_VALID_MASK = 1u << 2u;
@@ -38,7 +40,9 @@ struct gamma {
     uint32_t players_num;
     uint32_t height;
     uint32_t width;
+
     uint64_t occupied_fields;
+    uint64_t next_area;
 
     field_flag_t field_visited_expected_flag;
     field_flag_t field_area_valid_expected_flag;
@@ -55,12 +59,14 @@ field_t **allocate_board(uint32_t width, uint32_t height) {
 
     uint32_t allocated_rows = 0;
     for (; allocated_rows < height; allocated_rows++) {
-        board[allocated_rows] = malloc(width * sizeof(field_t));
+        board[allocated_rows] = malloc((uint64_t)width * sizeof(field_t));
         if (board[allocated_rows] == NULL) {
             break;
         }
         for (uint32_t i = 0; i < width; i++) {
             board[allocated_rows][i].flags = EMPTY_FIELD_FLAG;
+            board[allocated_rows][i].parent = &board[allocated_rows][i];
+            board[allocated_rows][i].size = 1;
         }
     }
 
@@ -104,6 +110,8 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     game->players_num = players;
 
     game->occupied_fields = 0;
+    game->next_area = 0;
+
     game->field_visited_expected_flag = FIELD_VISITED_MASK;
     game->field_area_valid_expected_flag = FIELD_AREA_VALID_MASK;
 
@@ -138,6 +146,84 @@ void gamma_delete(gamma_t *g) {
     free(g->board);
     free(g->players);
     free(g);
+}
+
+/** @brief Sprawdza czy pole nalezy do planszy.
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza.
+ * @return Wartość @p true, jeśli pole nalezy do planszy, a @p false
+ * w przeciwnym przypadku.
+ */
+static inline bool is_within_board(gamma_t *g, int64_t x, int64_t y) {
+    return x >= 0 && y >= 0 && g->width > x && g->height > y;
+}
+
+static inline bool belongs_to_player(gamma_t *g, int64_t x, int64_t y,
+                                     uint32_t player) {
+    return is_within_board(g, x, y) && g->board[y][x].player == player;
+}
+
+static inline bool has_neighbor(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
+    return belongs_to_player(g, x + 1, y, player) ||
+           belongs_to_player(g, x - 1, y, player) ||
+           belongs_to_player(g, x, y + 1, player) ||
+           belongs_to_player(g, x, y - 1, player);
+}
+
+static inline field_t *get_field(gamma_t *g, int64_t x, int64_t y) {
+    if (!is_within_board(g, x, y)) {
+        return NULL;
+    }
+    return &g->board[y][x];
+}
+
+bool fu_reindex(gamma_t *g) {
+    for (uint32_t p = 0; p < g->players_num; p++) {
+        g->players[p].areas = 0;
+    }
+
+    for (int64_t row = 0; row < g->height; row++) {
+        for (int64_t column = 0; column < g->width; column++) {
+        }
+    }
+
+    return true;
+}
+
+static inline field_t *fu_find(field_t *field) {
+    // path halving method
+
+    while (field->parent != field) {
+        field->parent = field->parent->parent;
+        field = field->parent;
+    }
+
+    return field;
+}
+
+static inline field_t *fu_union(field_t *x, field_t *y) {
+    // union by size method
+
+    field_t *x_root = fu_find(x);
+    field_t *y_root = fu_find(y);
+
+    if (x_root == y_root) {
+        // x and y are already in the same set
+        return x_root;
+    }
+
+    if (x_root->size < y_root->size) {
+        field_t *tmp = x_root;
+        x_root = y_root;
+        y_root = tmp;
+    }
+
+    // merge y_root into x_root
+    y_root->parent = x_root;
+    x_root->size = x_root->size + y_root->size;
+
+    return x_root;
 }
 
 /** @brief Wykonuje ruch.
