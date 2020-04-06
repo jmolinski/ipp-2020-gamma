@@ -22,6 +22,11 @@ typedef struct gamma gamma_t;
  */
 typedef struct field field_t;
 
+/**
+ * Struktura przechowująca stan gracza.
+ */
+typedef struct player player_t;
+
 /** @brief Tworzy strukturę przechowującą stan gry.
  * Alokuje pamięć na nową strukturę przechowującą stan gry.
  * Inicjuje tę strukturę tak, aby reprezentowała początkowy stan gry.

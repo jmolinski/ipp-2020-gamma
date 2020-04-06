@@ -14,6 +14,16 @@ struct field {
     uint8_t flags;
 };
 
+/**
+ * Struktura przechowująca stan gracza.
+ */
+struct player {
+    uint64_t occupied_fields;
+    uint64_t zero_cost_move_fields;
+    uint32_t areas;
+    bool golden_move_done;
+};
+
 typedef uint32_t field_flag_t;
 const field_flag_t EMPTY_FIELD_FLAG = 1u << 0u;
 const field_flag_t FIELD_VISITED_MASK = 1u << 1u;
@@ -24,7 +34,7 @@ const field_flag_t FIELD_AREA_VALID_MASK = 1u << 2u;
  */
 struct gamma {
     uint32_t max_areas;
-    uint32_t players;
+    uint32_t players_num;
     uint32_t height;
     uint32_t width;
     uint64_t occupied_fields;
@@ -32,7 +42,7 @@ struct gamma {
     field_flag_t field_visited_expected_flag;
     field_flag_t field_area_valid_expected_flag;
 
-    uint64_t *players_border_fields;
+    player_t *players;
     field_t **board;
 };
 
@@ -90,22 +100,22 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     game->width = width;
     game->height = height;
     game->max_areas = areas;
-    game->players = players;
+    game->players_num = players;
 
     game->occupied_fields = 0;
     game->field_visited_expected_flag = FIELD_VISITED_MASK;
     game->field_area_valid_expected_flag = FIELD_AREA_VALID_MASK;
 
-    game->players_border_fields = malloc(players * sizeof(uint64_t));
-    if (game->players_border_fields != NULL) {
-        memset(game->players_border_fields, 0, players);
+    game->players = malloc(players * sizeof(player_t));
+    if (game->players != NULL) {
+        memset(game->players, 0, players * sizeof(player_t));
 
         game->board = allocate_board(width, height);
         if (game->board != NULL) {
             return game;
         }
 
-        free(game->players_border_fields);
+        free(game->players);
     }
 
     free(game);
@@ -127,7 +137,7 @@ void gamma_delete(gamma_t *g) {
         free(g->board[row]);
     }
     free(g->board);
-    free(g->players_border_fields);
+    free(g->players);
     free(g);
 }
 
@@ -144,7 +154,7 @@ void gamma_delete(gamma_t *g) {
  * gdy ruch jest nielegalny lub któryś z parametrów jest niepoprawny.
  */
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players) {
+    if (g == NULL || player == 0 || player > g->players_num) {
         return false;
     }
 
@@ -166,7 +176,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
  * lub któryś z parametrów jest niepoprawny.
  */
 bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players) {
+    if (g == NULL || player == 0 || player > g->players_num) {
         return false;
     }
 
@@ -182,11 +192,12 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
  * jeśli któryś z parametrów jest niepoprawny.
  */
 uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
-    if (g == NULL || player == 0 || player > g->players) {
+    if (g == NULL || player == 0 || player > g->players_num) {
         return 0;
     }
 
-    return 0;
+    const uint32_t player_index = player % g->players_num;
+    return g->players[player_index].occupied_fields;
 }
 
 /** @brief Podaje liczbę pól, jakie jeszcze gracz może zająć.
@@ -199,11 +210,18 @@ uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
  * jeśli któryś z parametrów jest niepoprawny.
  */
 uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
-    if (g == NULL || player == 0 || player > g->players) {
+    if (g == NULL || player == 0 || player > g->players_num) {
         return 0;
     }
 
-    return 0;
+    const uint32_t player_index = player % g->players_num;
+
+    if (g->players[player_index].areas < g->max_areas) {
+        uint64_t total_fields = g->width * g->height;
+        return total_fields - g->occupied_fields;
+    }
+
+    return g->players[player_index].zero_cost_move_fields;
 }
 
 /** @brief Sprawdza, czy gracz może wykonać złoty ruch.
@@ -217,8 +235,20 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
  * a @p false w przeciwnym przypadku.
  */
 bool gamma_golden_possible(gamma_t *g, uint32_t player) {
-    if (g == NULL || player == 0 || player > g->players) {
+    if (g == NULL || player == 0 || player > g->players_num) {
         return false;
+    }
+
+    const uint32_t player_index = player % g->players_num;
+
+    if (g->players[player_index].golden_move_done) {
+        return false;
+    }
+
+    for (uint32_t p = 0; p < g->players_num; p++) {
+        if (g->players[p].occupied_fields > 0 && p != player_index) {
+            return true;
+        }
     }
 
     return false;
