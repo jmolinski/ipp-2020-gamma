@@ -28,8 +28,6 @@ struct gamma {
 
     uint64_t occupied_fields;
 
-    field_flag_t field_visited_expected_flag;
-
     player_t *players;
     field_t **board;
 };
@@ -62,7 +60,6 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     game->players_num = players;
 
     game->occupied_fields = 0;
-    game->field_visited_expected_flag = FIELD_VISITED_MASK;
 
     game->players = calloc(players, sizeof(player_t));
     if (game->players != NULL) {
@@ -110,7 +107,7 @@ static inline bool is_within_board(gamma_t *g, int64_t x, int64_t y) {
 
 static inline bool belongs_to_player(gamma_t *g, int64_t x, int64_t y,
                                      uint32_t player) {
-    if (!is_within_board(g, x, y) || g->board[y][x].flags & EMPTY_FIELD_FLAG) {
+    if (!is_within_board(g, x, y) || g->board[y][x].empty) {
         return false;
     }
     return g->board[y][x].player == player;
@@ -155,7 +152,7 @@ uint8_t new_empty_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
         for (int dy = -1; dy <= 1; dy++) {
             if ((dx == 0 || dy == 0) && !(dx == 0 && dy == 0)) {
                 field_t *f = get_field(g, x + dx, y + dy);
-                if (f != NULL && f->flags & EMPTY_FIELD_FLAG) {
+                if (f != NULL && f->empty) {
                     new_nearby_empty_fields += !has_neighbor(g, x + dx, y + dy, player);
                 }
             }
@@ -181,7 +178,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         y >= g->height) {
         return false;
     }
-    if ((g->board[y][x].flags & EMPTY_FIELD_FLAG) == 0) {
+    if (!g->board[y][x].empty) {
         return false;
     }
 
@@ -205,7 +202,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     int new_nearby_empty_fields = new_empty_fields(g, xs, ys, player);
 
     g->board[y][x].player = player;
-    g->board[y][x].flags ^= EMPTY_FIELD_FLAG;
+    g->board[y][x].empty = false;
     g->occupied_fields++;
     g->players[player_index].areas++;
     g->players[player_index].occupied_fields++;
@@ -215,7 +212,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 
     field_t *neighbors[4] = {n, s, e, w};
     for (int i = 0; i < 4; i++) {
-        if (neighbors[i] == NULL || neighbors[i]->flags & EMPTY_FIELD_FLAG)
+        if (neighbors[i] == NULL || neighbors[i]->empty)
             continue;
 
         uint32_t neighbor = neighbors[i]->player;
@@ -237,7 +234,7 @@ bool reindex_areas(gamma_t *g) {
     // Reset fields fu fields.
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
-            if (g->board[row][column].flags & EMPTY_FIELD_FLAG) {
+            if (g->board[row][column].empty) {
                 continue;
             }
             g->board[row][column].parent = &g->board[row][column];
@@ -250,7 +247,7 @@ bool reindex_areas(gamma_t *g) {
     // Recreate find-union sets.
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
-            if (g->board[row][column].flags & EMPTY_FIELD_FLAG) {
+            if (g->board[row][column].empty) {
                 continue;
             }
             uint32_t player_index = g->board[row][column].player % g->players_num;
@@ -268,7 +265,6 @@ bool reindex_areas(gamma_t *g) {
 
     return true;
 }
-
 
 /** @brief Wykonuje złoty ruch.
  * Ustawia pionek gracza @p player na polu (@p x, @p y) zajętym przez innego
@@ -289,7 +285,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         y >= g->height) {
         return false;
     }
-    if (g->board[y][x].flags & EMPTY_FIELD_FLAG || g->board[y][x].player == player) {
+    if (g->board[y][x].empty || g->board[y][x].player == player) {
         return false;
     }
 
@@ -298,19 +294,17 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         return false;
     }
 
-    int64_t xs = x;
-    int64_t ys = y;
-
-    const bool is_zero_cost_move = has_neighbor(g, xs, ys, player);
+    const bool is_zero_cost_move = has_neighbor(g, x, y, player);
     if (g->players[player_index].areas == g->max_areas) {
         if (!is_zero_cost_move) {
             return false;
         }
     }
 
-    int new_nearby_empty_fields = new_empty_fields(g, xs, ys, player);
+    int new_nearby_empty_fields = new_empty_fields(g, x, y, player);
 
     uint32_t previous_player = g->board[y][x].player;
+    uint32_t previous_player_index = previous_player % g->players_num;
     g->board[y][x].player = player;
 
     bool valid_state = reindex_areas(g);
@@ -322,9 +316,9 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     }
 
     g->players[player_index].occupied_fields++;
-    g->players[previous_player % g->players_num].occupied_fields--;
+    g->players[previous_player_index].occupied_fields--;
     g->players[player_index].zero_cost_move_fields += new_nearby_empty_fields;
-    g->players[previous_player % g->players_num].zero_cost_move_fields -=
+    g->players[previous_player_index].zero_cost_move_fields -=
         new_empty_fields(g, x, y, previous_player);
 
     g->players[player_index].golden_move_done = true;
@@ -470,7 +464,7 @@ char *gamma_board(gamma_t *g) {
             str[pos++] = '\n';
         }
 
-        if (g->board[x][y].flags & EMPTY_FIELD_FLAG) {
+        if (g->board[x][y].empty) {
             str[pos++] = '.';
         } else {
             uint32_t player = g->board[x][y].player;

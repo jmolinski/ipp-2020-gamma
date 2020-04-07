@@ -2,9 +2,6 @@
 #include "gamma.h"
 #include <stdlib.h>
 
-const field_flag_t EMPTY_FIELD_FLAG = 1u << 0u;
-const field_flag_t FIELD_VISITED_MASK = 1u << 1u;
-
 field_t **allocate_board(uint32_t width, uint32_t height) {
     field_t **board = malloc(height * sizeof(field_t *));
     if (board == NULL) {
@@ -18,7 +15,7 @@ field_t **allocate_board(uint32_t width, uint32_t height) {
             break;
         }
         for (uint32_t i = 0; i < width; i++) {
-            board[allocated_rows][i].flags = EMPTY_FIELD_FLAG;
+            board[allocated_rows][i].empty = true;
             board[allocated_rows][i].parent = &board[allocated_rows][i];
             board[allocated_rows][i].size = 1;
             board[allocated_rows][i].player = 0;

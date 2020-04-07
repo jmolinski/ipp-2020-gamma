@@ -11,14 +11,10 @@ typedef struct field field_t;
  */
 struct field {
     uint32_t player;
-    uint8_t flags;
+    bool empty;
     field_t *parent; // for find-union algorithm
     uint64_t size;   // for find-union algorithm
 };
-
-typedef uint8_t field_flag_t;
-extern const field_flag_t EMPTY_FIELD_FLAG;
-extern const field_flag_t FIELD_VISITED_MASK;
 
 field_t **allocate_board(uint32_t width, uint32_t height);
 field_t *fu_find(field_t *field);
