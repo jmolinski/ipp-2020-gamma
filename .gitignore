@@ -71,8 +71,12 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+CMakeDoxyfile.in
+CMakeDoxygenDefaults.cmake
 
 gamma
 Gamma.cbp
 
 tests
+
+Doxyfile
