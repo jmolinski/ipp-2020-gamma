@@ -11,7 +11,6 @@ typedef struct field field_t;
  */
 struct field {
     uint32_t player;
-    uint64_t area;
     uint8_t flags;
     field_t *parent; // for find-union algorithm
     uint64_t size;   // for find-union algorithm

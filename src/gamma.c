@@ -27,7 +27,6 @@ struct gamma {
     uint32_t width;
 
     uint64_t occupied_fields;
-    uint64_t next_area;
 
     field_flag_t field_visited_expected_flag;
 
@@ -63,8 +62,6 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     game->players_num = players;
 
     game->occupied_fields = 0;
-    game->next_area = 0;
-
     game->field_visited_expected_flag = FIELD_VISITED_MASK;
 
     game->players = calloc(players, sizeof(player_t));
@@ -113,7 +110,10 @@ static inline bool is_within_board(gamma_t *g, int64_t x, int64_t y) {
 
 static inline bool belongs_to_player(gamma_t *g, int64_t x, int64_t y,
                                      uint32_t player) {
-    return is_within_board(g, x, y) && g->board[y][x].player == player;
+    if (!is_within_board(g, x, y) || g->board[y][x].flags & EMPTY_FIELD_FLAG) {
+        return false;
+    }
+    return g->board[y][x].player == player;
 }
 
 static inline bool has_neighbor(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
@@ -130,52 +130,58 @@ static inline field_t *get_field(gamma_t *g, int64_t x, int64_t y) {
     return &g->board[y][x];
 }
 
-bool fu_reindex(gamma_t *g) {
+uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
+    field_t **board = g->board;
+    field_t *this_field = &board[row][column];
+    const uint32_t player = this_field->player;
+
+    uint8_t merged_areas = 0;
+    // need to check this for all field neighbors
+    if (belongs_to_player(g, column + 1, row, player))
+        merged_areas += fu_union(this_field, &board[row][column + 1]);
+    if (belongs_to_player(g, column - 1, row, player))
+        merged_areas += fu_union(this_field, &board[row][column - 1]);
+    if (belongs_to_player(g, column, row + 1, player))
+        merged_areas += fu_union(this_field, &board[row + 1][column]);
+    if (belongs_to_player(g, column, row - 1, player))
+        merged_areas += fu_union(this_field, &board[row - 1][column]);
+
+    return merged_areas;
+}
+
+bool reindex_areas(gamma_t *g) {
     for (uint32_t p = 0; p < g->players_num; p++) {
         g->players[p].areas = 0;
     }
 
+    field_t **board = g->board;
+    // Reset fields fu fields.
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
+            board[row][column].parent = &board[row][column];
+            board[row][column].size = 1;
+            const uint32_t player_index = board[row][column].player % g->players_num;
+            g->players[player_index].areas++;
+        }
+    }
+
+    // Recreate find-union sets.
+    for (int64_t row = 0; row < g->height; row++) {
+        for (int64_t column = 0; column < g->width; column++) {
+            const uint32_t player_index = board[row][column].player % g->players_num;
+            uint8_t merged_areas = union_neighbors(g, column, row);
+            g->players[player_index].areas -= merged_areas;
+        }
+    }
+
+    // Assert that all players have no more areas than g->max_areas.
+    for (uint32_t p = 0; p < g->players_num; p++) {
+        if (g->players[p].areas > g->max_areas) {
+            return false;
         }
     }
 
     return true;
-}
-
-static inline field_t *fu_find(field_t *field) {
-    // path halving method
-
-    while (field->parent != field) {
-        field->parent = field->parent->parent;
-        field = field->parent;
-    }
-
-    return field;
-}
-
-static inline field_t *fu_union(field_t *x, field_t *y) {
-    // union by size method
-
-    field_t *x_root = fu_find(x);
-    field_t *y_root = fu_find(y);
-
-    if (x_root == y_root) {
-        // x and y are already in the same set
-        return x_root;
-    }
-
-    if (x_root->size < y_root->size) {
-        field_t *tmp = x_root;
-        x_root = y_root;
-        y_root = tmp;
-    }
-
-    // merge y_root into x_root
-    y_root->parent = x_root;
-    x_root->size = x_root->size + y_root->size;
-
-    return x_root;
 }
 
 /** @brief Wykonuje ruch.
@@ -191,11 +197,67 @@ static inline field_t *fu_union(field_t *x, field_t *y) {
  * gdy ruch jest nielegalny lub któryś z parametrów jest niepoprawny.
  */
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players_num) {
+    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
+        y >= g->height) {
+        return false;
+    }
+    if ((g->board[y][x].flags & EMPTY_FIELD_FLAG) == 0) {
         return false;
     }
 
-    return false;
+    const uint32_t player_index = player % g->players_num;
+
+    int64_t xs = x;
+    int64_t ys = y;
+
+    field_t *n = get_field(g, xs + 1, ys);
+    field_t *s = get_field(g, xs - 1, ys);
+    field_t *e = get_field(g, xs, ys + 1);
+    field_t *w = get_field(g, xs, ys - 1);
+
+    const bool is_zero_cost_move = has_neighbor(g, xs, ys, player);
+    if (g->players[player_index].areas == g->max_areas) {
+        if (!is_zero_cost_move) {
+            return false;
+        }
+    }
+
+    int new_nearby_empty_fields = 0;
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            if ((dx == 0 || dy == 0) && !(dx == 0 && dy == 0)) {
+                field_t *f = get_field(g, xs + dx, ys + dy);
+                if (f != NULL && f->flags & EMPTY_FIELD_FLAG) {
+                    new_nearby_empty_fields +=
+                        !has_neighbor(g, xs + dx, ys + dy, player);
+                }
+            }
+        }
+    }
+
+    g->board[y][x].player = player;
+    g->board[y][x].flags ^= EMPTY_FIELD_FLAG;
+    g->occupied_fields++;
+    g->players[player_index].areas++;
+    g->players[player_index].occupied_fields++;
+    g->players[player_index].zero_cost_move_fields += new_nearby_empty_fields;
+
+    g->players[player_index].areas -= union_neighbors(g, xs, ys);
+
+    field_t *neighbors[4] = {n, s, e, w};
+    for (int i = 0; i < 4; i++) {
+        if (neighbors[i] == NULL || neighbors[i]->flags & EMPTY_FIELD_FLAG)
+            continue;
+
+        uint32_t neighbor = neighbors[i]->player;
+        g->players[neighbor % g->players_num].zero_cost_move_fields--;
+
+        for (int j = i; j < 4; j++)
+            if (neighbors[j] != NULL && neighbors[j]->player == neighbor)
+                neighbors[j] = NULL;
+    }
+
+    return true;
 }
 
 /** @brief Wykonuje złoty ruch.

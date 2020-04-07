@@ -21,6 +21,7 @@ field_t **allocate_board(uint32_t width, uint32_t height) {
             board[allocated_rows][i].flags = EMPTY_FIELD_FLAG;
             board[allocated_rows][i].parent = &board[allocated_rows][i];
             board[allocated_rows][i].size = 1;
+            board[allocated_rows][i].player = 0;
         }
     }
 
