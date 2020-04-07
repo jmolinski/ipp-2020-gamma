@@ -149,39 +149,19 @@ uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
     return merged_areas;
 }
 
-bool reindex_areas(gamma_t *g) {
-    for (uint32_t p = 0; p < g->players_num; p++) {
-        g->players[p].areas = 0;
-    }
-
-    field_t **board = g->board;
-    // Reset fields fu fields.
-    for (int64_t row = 0; row < g->height; row++) {
-        for (int64_t column = 0; column < g->width; column++) {
-            board[row][column].parent = &board[row][column];
-            board[row][column].size = 1;
-            const uint32_t player_index = board[row][column].player % g->players_num;
-            g->players[player_index].areas++;
+uint8_t new_empty_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
+    uint8_t new_nearby_empty_fields = 0;
+    for (int dx = -1; dx <= 1; dx++) {
+        for (int dy = -1; dy <= 1; dy++) {
+            if ((dx == 0 || dy == 0) && !(dx == 0 && dy == 0)) {
+                field_t *f = get_field(g, x + dx, y + dy);
+                if (f != NULL && f->flags & EMPTY_FIELD_FLAG) {
+                    new_nearby_empty_fields += !has_neighbor(g, x + dx, y + dy, player);
+                }
+            }
         }
     }
-
-    // Recreate find-union sets.
-    for (int64_t row = 0; row < g->height; row++) {
-        for (int64_t column = 0; column < g->width; column++) {
-            const uint32_t player_index = board[row][column].player % g->players_num;
-            uint8_t merged_areas = union_neighbors(g, column, row);
-            g->players[player_index].areas -= merged_areas;
-        }
-    }
-
-    // Assert that all players have no more areas than g->max_areas.
-    for (uint32_t p = 0; p < g->players_num; p++) {
-        if (g->players[p].areas > g->max_areas) {
-            return false;
-        }
-    }
-
-    return true;
+    return new_nearby_empty_fields;
 }
 
 /** @brief Wykonuje ruch.
@@ -222,18 +202,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         }
     }
 
-    int new_nearby_empty_fields = 0;
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if ((dx == 0 || dy == 0) && !(dx == 0 && dy == 0)) {
-                field_t *f = get_field(g, xs + dx, ys + dy);
-                if (f != NULL && f->flags & EMPTY_FIELD_FLAG) {
-                    new_nearby_empty_fields +=
-                        !has_neighbor(g, xs + dx, ys + dy, player);
-                }
-            }
-        }
-    }
+    int new_nearby_empty_fields = new_empty_fields(g, xs, ys, player);
 
     g->board[y][x].player = player;
     g->board[y][x].flags ^= EMPTY_FIELD_FLAG;
@@ -260,6 +229,47 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     return true;
 }
 
+bool reindex_areas(gamma_t *g) {
+    for (uint32_t p = 0; p < g->players_num; p++) {
+        g->players[p].areas = 0;
+    }
+
+    // Reset fields fu fields.
+    for (int64_t row = 0; row < g->height; row++) {
+        for (int64_t column = 0; column < g->width; column++) {
+            if (g->board[row][column].flags & EMPTY_FIELD_FLAG) {
+                continue;
+            }
+            g->board[row][column].parent = &g->board[row][column];
+            g->board[row][column].size = 1;
+            uint32_t player_index = g->board[row][column].player % g->players_num;
+            g->players[player_index].areas++;
+        }
+    }
+
+    // Recreate find-union sets.
+    for (int64_t row = 0; row < g->height; row++) {
+        for (int64_t column = 0; column < g->width; column++) {
+            if (g->board[row][column].flags & EMPTY_FIELD_FLAG) {
+                continue;
+            }
+            uint32_t player_index = g->board[row][column].player % g->players_num;
+            uint8_t merged_areas = union_neighbors(g, column, row);
+            g->players[player_index].areas -= merged_areas;
+        }
+    }
+
+    // Assert that all players have no more areas than g->max_areas.
+    for (uint32_t p = 0; p < g->players_num; p++) {
+        if (g->players[p].areas > g->max_areas) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 /** @brief Wykonuje złoty ruch.
  * Ustawia pionek gracza @p player na polu (@p x, @p y) zajętym przez innego
  * gracza, usuwając pionek innego gracza.
@@ -275,11 +285,51 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
  * lub któryś z parametrów jest niepoprawny.
  */
 bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players_num) {
+    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
+        y >= g->height) {
+        return false;
+    }
+    if (g->board[y][x].flags & EMPTY_FIELD_FLAG || g->board[y][x].player == player) {
         return false;
     }
 
-    return false;
+    const uint32_t player_index = player % g->players_num;
+    if (g->players[player_index].golden_move_done) {
+        return false;
+    }
+
+    int64_t xs = x;
+    int64_t ys = y;
+
+    const bool is_zero_cost_move = has_neighbor(g, xs, ys, player);
+    if (g->players[player_index].areas == g->max_areas) {
+        if (!is_zero_cost_move) {
+            return false;
+        }
+    }
+
+    int new_nearby_empty_fields = new_empty_fields(g, xs, ys, player);
+
+    uint32_t previous_player = g->board[y][x].player;
+    g->board[y][x].player = player;
+
+    bool valid_state = reindex_areas(g);
+    if (!valid_state) {
+        // exceeded areas limit
+        g->board[y][x].player = previous_player;
+        reindex_areas(g);
+        return false;
+    }
+
+    g->players[player_index].occupied_fields++;
+    g->players[previous_player % g->players_num].occupied_fields--;
+    g->players[player_index].zero_cost_move_fields += new_nearby_empty_fields;
+    g->players[previous_player % g->players_num].zero_cost_move_fields -=
+        new_empty_fields(g, x, y, previous_player);
+
+    g->players[player_index].golden_move_done = true;
+
+    return true;
 }
 
 /** @brief Podaje liczbę pól zajętych przez gracza.
@@ -435,8 +485,7 @@ char *gamma_board(gamma_t *g) {
     }
 
     str[pos++] = '\n';
-    str[pos++] = '\0';
-    str = realloc(str, pos + 1); // cut the remaining buffer space
+    str[pos] = '\0';
 
     return str;
 }
