@@ -446,34 +446,34 @@ char *gamma_board(gamma_t *g) {
     }
 
     uint64_t pos = 0;
-    for (uint64_t field = 0; field < total_fields; field++) {
-        uint32_t x = g->height - (field / g->height) - 1;
-        uint32_t y = field % g->width;
-
-        const uint64_t left_buffer_space = allocated_space - pos;
-        if (left_buffer_space < 50) { // max needed for 1 field is 33 bytes
-            allocated_space = allocated_space + (total_fields - field) + 50;
-            str = realloc(str, allocated_space);
-            if (str == NULL) {
-                errno = ENOMEM;
-                return NULL;
+    uint64_t written_fields = 0;
+    for(int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
+        for(uint32_t x = 0; x < g->width; x++) {
+            const uint64_t left_buffer_space = allocated_space - pos;
+            if (left_buffer_space < 50) { // max needed for 1 field is 33 bytes
+                allocated_space = allocated_space + (total_fields - written_fields) + 50;
+                str = realloc(str, allocated_space);
+                if (str == NULL) {
+                    errno = ENOMEM;
+                    return NULL;
+                }
             }
-        }
 
-        if (y == 0 && x != g->height - 1) {
-            str[pos++] = '\n';
-        }
+            if (x == 0 && y != g->height - 1) {
+                str[pos++] = '\n';
+            }
 
-        if (g->board[x][y].empty) {
-            str[pos++] = '.';
-        } else {
-            uint32_t player = g->board[x][y].player;
-            if (player < 10) {
-                str[pos++] = ASCII_ZERO + player;
+            if (g->board[y][x].empty) {
+                str[pos++] = '.';
             } else {
-                str[pos++] = '[';
-                pos += uint_to_string(str, player);
-                str[pos++] = ']';
+                uint32_t player = g->board[y][x].player;
+                if (player < 10) {
+                    str[pos++] = ASCII_ZERO + player;
+                } else {
+                    str[pos++] = '[';
+                    pos += uint_to_string(str, player);
+                    str[pos++] = ']';
+                }
             }
         }
     }
