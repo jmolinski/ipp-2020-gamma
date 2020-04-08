@@ -80,3 +80,4 @@ Gamma.cbp
 tests
 
 Doxyfile
+.clang-format
