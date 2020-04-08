@@ -1,11 +1,20 @@
 #include "gamma.h"
-#include "board.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #define ASCII_ZERO 48
+
+/**
+ * Struktura przechowująca stan pola.
+ */
+struct field {
+    uint32_t player;
+    bool empty;
+    field_t *parent; // for find-union algorithm
+    uint64_t size;   // for find-union algorithm
+};
 
 /**
  * Struktura przechowująca stan gracza.
@@ -31,6 +40,73 @@ struct gamma {
     player_t *players;
     field_t **board;
 };
+
+field_t **allocate_board(uint32_t width, uint32_t height) {
+    field_t **board = malloc(height * sizeof(field_t *));
+    if (board == NULL) {
+        return NULL;
+    }
+
+    uint32_t allocated_rows = 0;
+    for (; allocated_rows < height; allocated_rows++) {
+        board[allocated_rows] = malloc((uint64_t)width * sizeof(field_t));
+        if (board[allocated_rows] == NULL) {
+            break;
+        }
+        for (uint32_t i = 0; i < width; i++) {
+            board[allocated_rows][i].empty = true;
+            board[allocated_rows][i].parent = &board[allocated_rows][i];
+            board[allocated_rows][i].size = 1;
+            board[allocated_rows][i].player = 0;
+        }
+    }
+
+    if (allocated_rows == height) {
+        return board;
+    }
+
+    for (uint32_t row = 0; row < allocated_rows; row++) {
+        free(board[row]);
+    }
+    free(board);
+
+    return NULL;
+}
+
+field_t *fu_find(field_t *field) {
+    // path halving method
+
+    while (field->parent != field) {
+        field->parent = field->parent->parent;
+        field = field->parent;
+    }
+
+    return field;
+}
+
+bool fu_union(field_t *x, field_t *y) {
+    // union by size method
+
+    field_t *x_root = fu_find(x);
+    field_t *y_root = fu_find(y);
+
+    if (x_root == y_root) {
+        // x and y are already in the same set
+        return false;
+    }
+
+    if (x_root->size < y_root->size) {
+        field_t *tmp = x_root;
+        x_root = y_root;
+        y_root = tmp;
+    }
+
+    // merge y_root into x_root
+    y_root->parent = x_root;
+    x_root->size = x_root->size + y_root->size;
+
+    return true;
+}
 
 /** @brief Tworzy strukturę przechowującą stan gry.
  * Alokuje pamięć na nową strukturę przechowującą stan gry.
@@ -447,11 +523,12 @@ char *gamma_board(gamma_t *g) {
 
     uint64_t pos = 0;
     uint64_t written_fields = 0;
-    for(int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
-        for(uint32_t x = 0; x < g->width; x++) {
+    for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
+        for (uint32_t x = 0; x < g->width; x++) {
             const uint64_t left_buffer_space = allocated_space - pos;
             if (left_buffer_space < 50) { // max needed for 1 field is 33 bytes
-                allocated_space = allocated_space + (total_fields - written_fields) + 50;
+                allocated_space =
+                    allocated_space + (total_fields - written_fields) + 50;
                 str = realloc(str, allocated_space);
                 if (str == NULL) {
                     errno = ENOMEM;
@@ -471,7 +548,7 @@ char *gamma_board(gamma_t *g) {
                     str[pos++] = ASCII_ZERO + player;
                 } else {
                     str[pos++] = '[';
-                    pos += uint_to_string(str, player);
+                    pos += uint_to_string(&str[pos], player);
                     str[pos++] = ']';
                 }
             }
