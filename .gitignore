@@ -58,7 +58,7 @@ dkms.conf
 
 release/
 debug/
-
+html/
 
 CMakeLists.txt.user
 CMakeCache.txt

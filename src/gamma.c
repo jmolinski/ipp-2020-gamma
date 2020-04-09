@@ -1,3 +1,11 @@
+/** @file
+ * Implementacja interfejsu silnika gry gamma.
+ *
+ * @author Jakub Moliński <jm419502@students.mimuw.edu.pl>
+ * @copyright Uniwersytet Warszawski
+ * @date 06.04.2020
+ */
+
 #include "gamma.h"
 #include <errno.h>
 #include <stdbool.h>
@@ -41,6 +49,13 @@ struct gamma {
     field_t **board;
 };
 
+/** @brief Alokuje planszę do gry Gamma.
+ * Alokuje planszę o zadanych wymiarach skladającą się
+ * @param[in] width       – szerokość planszy,
+ * @param[in] height      – wysokoć planszy.
+ * @return Wartość @p true, jeśli pole nalezy do planszy, a @p false
+ * w przeciwnym przypadku.
+ */
 field_t **allocate_board(uint32_t width, uint32_t height) {
     field_t **board = malloc(height * sizeof(field_t *));
     if (board == NULL) {
@@ -108,17 +123,6 @@ bool fu_union(field_t *x, field_t *y) {
     return true;
 }
 
-/** @brief Tworzy strukturę przechowującą stan gry.
- * Alokuje pamięć na nową strukturę przechowującą stan gry.
- * Inicjuje tę strukturę tak, aby reprezentowała początkowy stan gry.
- * @param[in] width   – szerokość planszy, liczba dodatnia,
- * @param[in] height  – wysokość planszy, liczba dodatnia,
- * @param[in] players – liczba graczy, liczba dodatnia,
- * @param[in] areas   – maksymalna liczba obszarów,
- *                      jakie może zająć jeden gracz.
- * @return Wskaźnik na utworzoną strukturę lub NULL, gdy nie udało się
- * zaalokować pamięci lub któryś z parametrów jest niepoprawny.
- */
 gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t areas) {
     if (width == 0 || height == 0 || players == 0 || areas == 0) {
         return NULL;
@@ -152,11 +156,6 @@ gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t a
     return NULL;
 }
 
-/** @brief Usuwa strukturę przechowującą stan gry.
- * Usuwa z pamięci strukturę wskazywaną przez @p g.
- * Nic nie robi, jeśli wskaźnik ten ma wartość NULL.
- * @param[in] g       – wskaźnik na usuwaną strukturę.
- */
 void gamma_delete(gamma_t *g) {
     if (g == NULL) {
         return;
@@ -222,33 +221,22 @@ uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
     return merged_areas;
 }
 
-uint8_t new_empty_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
+uint8_t new_zero_cost_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
     uint8_t new_nearby_empty_fields = 0;
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
-            if ((dx == 0 || dy == 0) && !(dx == 0 && dy == 0)) {
-                field_t *f = get_field(g, x + dx, y + dy);
-                if (f != NULL && f->empty) {
-                    new_nearby_empty_fields += !has_neighbor(g, x + dx, y + dy, player);
-                }
+            if ((dx == 0 && dy == 0) || (dx != 0 && dy != 0)) {
+                continue;
+            }
+            field_t *f = get_field(g, x + dx, y + dy);
+            if (f != NULL && f->empty && !has_neighbor(g, x + dx, y + dy, player)) {
+                new_nearby_empty_fields++;
             }
         }
     }
     return new_nearby_empty_fields;
 }
 
-/** @brief Wykonuje ruch.
- * Ustawia pionek gracza @p player na polu (@p x, @p y).
- * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
- *                      @p players z funkcji @ref gamma_new,
- * @param[in] x       – numer kolumny, liczba nieujemna mniejsza od wartości
- *                      @p width z funkcji @ref gamma_new,
- * @param[in] y       – numer wiersza, liczba nieujemna mniejsza od wartości
- *                      @p height z funkcji @ref gamma_new.
- * @return Wartość @p true, jeśli ruch został wykonany, a @p false,
- * gdy ruch jest nielegalny lub któryś z parametrów jest niepoprawny.
- */
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
         y >= g->height) {
@@ -275,7 +263,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         }
     }
 
-    int new_nearby_empty_fields = new_empty_fields(g, xs, ys, player);
+    int new_nearby_empty_fields = new_zero_cost_fields(g, xs, ys, player);
 
     g->board[y][x].player = player;
     g->board[y][x].empty = false;
@@ -302,12 +290,22 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     return true;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @brief Na nowo tworzy strukture find-union obszarów.
+ * Na nowo tworzy strukture find-union obszarów i dla każdego gracza aktualizuje
+ * liczbe posiadanych obszarów.
+ * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry.
+ * @return Wartość @p true, jeżeli po zakończeniu każdy z graczy ma nie więcej niż
+ * @p g->max_areas obszarów, @p false w przeciwnym przypadku.
+ */
 bool reindex_areas(gamma_t *g) {
     for (uint32_t p = 0; p < g->players_num; p++) {
         g->players[p].areas = 0;
     }
 
-    // Reset fields fu fields.
+    // Zresetuj pola z danymi FU w całej planszy. [ O(mn) ]
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
@@ -320,7 +318,7 @@ bool reindex_areas(gamma_t *g) {
         }
     }
 
-    // Recreate find-union sets.
+    // Utwórz na nowo sety find-union [ O(mn) ]
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
@@ -332,7 +330,7 @@ bool reindex_areas(gamma_t *g) {
         }
     }
 
-    // Assert that all players have no more areas than g->max_areas.
+    // Sprawdź czy każdy gracz ma nie wiecej niz g->max_areas obszarów.
     for (uint32_t p = 0; p < g->players_num; p++) {
         if (g->players[p].areas > g->max_areas) {
             return false;
@@ -342,20 +340,6 @@ bool reindex_areas(gamma_t *g) {
     return true;
 }
 
-/** @brief Wykonuje złoty ruch.
- * Ustawia pionek gracza @p player na polu (@p x, @p y) zajętym przez innego
- * gracza, usuwając pionek innego gracza.
- * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
- *                      @p players z funkcji @ref gamma_new,
- * @param[in] x       – numer kolumny, liczba nieujemna mniejsza od wartości
- *                      @p width z funkcji @ref gamma_new,
- * @param[in] y       – numer wiersza, liczba nieujemna mniejsza od wartości
- *                      @p height z funkcji @ref gamma_new.
- * @return Wartość @p true, jeśli ruch został wykonany, a @p false,
- * gdy gracz wykorzystał już swój złoty ruch, ruch jest nielegalny
- * lub któryś z parametrów jest niepoprawny.
- */
 bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
         y >= g->height) {
@@ -370,14 +354,15 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         return false;
     }
 
-    const bool is_zero_cost_move = has_neighbor(g, x, y, player);
+    const bool is_on_edge_of_owned_area = has_neighbor(g, x, y, player);
     if (g->players[player_index].areas == g->max_areas) {
-        if (!is_zero_cost_move) {
+        if (!is_on_edge_of_owned_area) {
             return false;
         }
     }
 
-    int new_nearby_empty_fields = new_empty_fields(g, x, y, player);
+    // Ta wartość musi zostać obliczona przed podmienieniem gracza.
+    int new_border_empty_fields = new_zero_cost_fields(g, x, y, player);
 
     uint32_t previous_player = g->board[y][x].player;
     uint32_t previous_player_index = previous_player % g->players_num;
@@ -385,7 +370,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 
     bool valid_state = reindex_areas(g);
     if (!valid_state) {
-        // exceeded areas limit
+        // Przekroczono limit obszarów dla któregoś z graczy.
         g->board[y][x].player = previous_player;
         reindex_areas(g);
         return false;
@@ -393,23 +378,15 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 
     g->players[player_index].occupied_fields++;
     g->players[previous_player_index].occupied_fields--;
-    g->players[player_index].zero_cost_move_fields += new_nearby_empty_fields;
-    g->players[previous_player_index].zero_cost_move_fields -=
-        new_empty_fields(g, x, y, previous_player);
+    g->players[player_index].zero_cost_move_fields += new_border_empty_fields;
+    const int lost_border_empty_fields = new_zero_cost_fields(g, x, y, previous_player);
+    g->players[previous_player_index].zero_cost_move_fields -= lost_border_empty_fields;
 
     g->players[player_index].golden_move_done = true;
 
     return true;
 }
 
-/** @brief Podaje liczbę pól zajętych przez gracza.
- * Podaje liczbę pól zajętych przez gracza @p player.
- * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
- *                      @p players z funkcji @ref gamma_new.
- * @return Liczba pól zajętych przez gracza lub zero,
- * jeśli któryś z parametrów jest niepoprawny.
- */
 uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
     if (g == NULL || player == 0 || player > g->players_num) {
         return 0;
@@ -419,15 +396,6 @@ uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
     return g->players[player_index].occupied_fields;
 }
 
-/** @brief Podaje liczbę pól, jakie jeszcze gracz może zająć.
- * Podaje liczbę wolnych pól, na których w danym stanie gry gracz @p player może
- * postawić swój pionek w następnym ruchu.
- * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
- *                      @p players z funkcji @ref gamma_new.
- * @return Liczba pól, jakie jeszcze może zająć gracz lub zero,
- * jeśli któryś z parametrów jest niepoprawny.
- */
 uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
     if (g == NULL || player == 0 || player > g->players_num) {
         return 0;
@@ -443,16 +411,6 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
     return g->players[player_index].zero_cost_move_fields;
 }
 
-/** @brief Sprawdza, czy gracz może wykonać złoty ruch.
- * Sprawdza, czy gracz @p player jeszcze nie wykonał w tej rozgrywce złotego
- * ruchu i jest przynajmniej jedno pole zajęte przez innego gracza.
- * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
- *                      @p players z funkcji @ref gamma_new.
- * @return Wartość @p true, jeśli gracz jeszcze nie wykonał w tej rozgrywce
- * złotego ruchu i jest przynajmniej jedno pole zajęte przez innego gracza,
- * a @p false w przeciwnym przypadku.
- */
 bool gamma_golden_possible(gamma_t *g, uint32_t player) {
     if (g == NULL || player == 0 || player > g->players_num) {
         return false;
@@ -476,7 +434,7 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
 /**
  * @brief Zmienia liczbę w napis.
  * Zapisuje cyfry zadanej liczby nieujemnej jako znaki w buforze.
- * Bufor musi być odpowiedio dlugi aby pomieścić wszystkie cyfry.
+ * Bufor musi być odpowiedio długi aby pomieścić wszystkie cyfry.
  * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik.
  * @param[in] n - liczba do skonwertowania.
  * @return Liczba zapisanych bajtów.
@@ -486,7 +444,7 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
     uint8_t written = 0;
 
     do {
-        // this writes the digits in reversed order
+        // zapisuje cyfry w odwróconej kolejności
         digits[written++] = n % 10;
         n /= 10;
     } while (n != 0);
@@ -498,24 +456,16 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
     return written;
 }
 
-/** @brief Daje napis opisujący stan planszy.
- * Alokuje w pamięci bufor, w którym umieszcza napis zawierający tekstowy
- * opis aktualnego stanu planszy. Przykład znajduje się w pliku gamma_test.c.
- * Funkcja wywołująca musi zwolnić ten bufor.
- * @param[in] g       – wskaźnik na strukturę przechowującą stan gry.
- * @return Wskaźnik na zaalokowany bufor zawierający napis opisujący stan
- * planszy lub NULL, jeśli nie udało się zaalokować pamięci.
- */
 char *gamma_board(gamma_t *g) {
     if (g == NULL) {
         return NULL;
     }
 
     const uint64_t total_fields = (g->width) * g->height;
-    // + g->height to account for newlines, +100 is just some extra space for \0
-    // and player numbers longer than 1 char (will be reallocated if needed)
+    // + g->height aby mieć miejsce na '\n', +100 to dodatkowe miejsce na \0 i
+    // numery graczy powyżej 9; jeśli zabraknie miejsca wywołany zostanie realloc
     uint64_t allocated_space = (total_fields + g->height + 100) * sizeof(char);
-    char *str = malloc(allocated_space); // +1 for \0
+    char *str = malloc(allocated_space);
     if (str == NULL) {
         errno = ENOMEM;
         return NULL;
@@ -526,9 +476,9 @@ char *gamma_board(gamma_t *g) {
     for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
         for (uint32_t x = 0; x < g->width; x++) {
             const uint64_t left_buffer_space = allocated_space - pos;
-            if (left_buffer_space < 50) { // max needed for 1 field is 33 bytes
-                allocated_space =
-                    allocated_space + (total_fields - written_fields) + 50;
+            if (left_buffer_space < 50) { // maks wymagane na jedno pole to 35 bajtow
+                uint64_t extra_space = (total_fields - written_fields) + 50;
+                allocated_space += extra_space;
                 str = realloc(str, allocated_space);
                 if (str == NULL) {
                     errno = ENOMEM;
@@ -536,26 +486,23 @@ char *gamma_board(gamma_t *g) {
                 }
             }
 
-            if (x == 0 && y != g->height - 1) {
-                str[pos++] = '\n';
-            }
-
             if (g->board[y][x].empty) {
                 str[pos++] = '.';
+                continue;
+            }
+
+            uint32_t player = g->board[y][x].player;
+            if (player < 10) {
+                str[pos++] = ASCII_ZERO + player;
             } else {
-                uint32_t player = g->board[y][x].player;
-                if (player < 10) {
-                    str[pos++] = ASCII_ZERO + player;
-                } else {
-                    str[pos++] = '[';
-                    pos += uint_to_string(&str[pos], player);
-                    str[pos++] = ']';
-                }
+                str[pos++] = '[';
+                pos += uint_to_string(&str[pos], player);
+                str[pos++] = ']';
             }
         }
+        str[pos++] = '\n';
     }
 
-    str[pos++] = '\n';
     str[pos] = '\0';
 
     return str;
