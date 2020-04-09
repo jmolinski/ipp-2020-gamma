@@ -237,44 +237,9 @@ uint8_t new_zero_cost_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) 
     return new_nearby_empty_fields;
 }
 
-bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
-        y >= g->height) {
-        return false;
-    }
-    if (!g->board[y][x].empty) {
-        return false;
-    }
-
-    const uint32_t player_index = player % g->players_num;
-
-    int64_t xs = x;
-    int64_t ys = y;
-
-    field_t *n = get_field(g, xs + 1, ys);
-    field_t *s = get_field(g, xs - 1, ys);
-    field_t *e = get_field(g, xs, ys + 1);
-    field_t *w = get_field(g, xs, ys - 1);
-
-    const bool is_zero_cost_move = has_neighbor(g, xs, ys, player);
-    if (g->players[player_index].areas == g->max_areas) {
-        if (!is_zero_cost_move) {
-            return false;
-        }
-    }
-
-    int new_nearby_empty_fields = new_zero_cost_fields(g, xs, ys, player);
-
-    g->board[y][x].player = player;
-    g->board[y][x].empty = false;
-    g->occupied_fields++;
-    g->players[player_index].areas++;
-    g->players[player_index].occupied_fields++;
-    g->players[player_index].zero_cost_move_fields += new_nearby_empty_fields;
-
-    g->players[player_index].areas -= union_neighbors(g, xs, ys);
-
-    field_t *neighbors[4] = {n, s, e, w};
+void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
+    field_t *neighbors[4] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
+                             get_field(g, x, y + 1), get_field(g, x, y - 1)};
     for (int i = 0; i < 4; i++) {
         if (neighbors[i] == NULL || neighbors[i]->empty)
             continue;
@@ -286,6 +251,36 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
             if (neighbors[j] != NULL && neighbors[j]->player == neighbor)
                 neighbors[j] = NULL;
     }
+}
+
+bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
+        y >= g->height) {
+        return false;
+    }
+    if (!g->board[y][x].empty) {
+        return false;
+    }
+
+    const uint32_t player_index = player % g->players_num;
+
+    if (g->players[player_index].areas == g->max_areas) {
+        if (!has_neighbor(g, x, y, player)) {
+            return false;
+        }
+    }
+
+    int new_border_empty_fields = new_zero_cost_fields(g, x, y, player);
+
+    g->board[y][x].player = player;
+    g->board[y][x].empty = false;
+    g->occupied_fields++;
+    g->players[player_index].areas++;
+    g->players[player_index].occupied_fields++;
+    g->players[player_index].areas -= union_neighbors(g, x, y);
+    g->players[player_index].zero_cost_move_fields += new_border_empty_fields;
+
+    decrement_neighbors_border_empty_fields(g, x, y);
 
     return true;
 }
@@ -353,10 +348,8 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g->players[player_index].golden_move_done) {
         return false;
     }
-
-    const bool is_on_edge_of_owned_area = has_neighbor(g, x, y, player);
     if (g->players[player_index].areas == g->max_areas) {
-        if (!is_on_edge_of_owned_area) {
+        if (!has_neighbor(g, x, y, player)) {
             return false;
         }
     }
@@ -377,12 +370,12 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     }
 
     g->players[player_index].occupied_fields++;
-    g->players[previous_player_index].occupied_fields--;
     g->players[player_index].zero_cost_move_fields += new_border_empty_fields;
-    const int lost_border_empty_fields = new_zero_cost_fields(g, x, y, previous_player);
-    g->players[previous_player_index].zero_cost_move_fields -= lost_border_empty_fields;
-
     g->players[player_index].golden_move_done = true;
+
+    const int lost_border_empty_fields = new_zero_cost_fields(g, x, y, previous_player);
+    g->players[previous_player_index].occupied_fields--;
+    g->players[previous_player_index].zero_cost_move_fields -= lost_border_empty_fields;
 
     return true;
 }
