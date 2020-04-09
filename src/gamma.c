@@ -449,6 +449,32 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
     return written;
 }
 
+/**
+ * @brief Zapisuje tekstową reprezentację pola do bufora.
+ * Zapisuje tekstową reprezentację pola do bufora. Bufor musi mieć odpowiednio
+ * dużo wolnego miejsca aby pomieścić wszystkie znaki.
+ * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik,
+ * @param[in] field - pole.
+ * @return Liczba zapisanych bajtów.
+ */
+uint8_t render_field(char *buffer, field_t *field) {
+    uint8_t written_chars = 0;
+    if (field->empty) {
+        buffer[written_chars++] = '.';
+    } else {
+        uint32_t player = field->player;
+        if (player < 10) {
+            buffer[written_chars++] = ASCII_ZERO + player;
+        } else {
+            buffer[written_chars++] = '[';
+            written_chars += uint_to_string(&buffer[written_chars], player);
+            buffer[written_chars++] = ']';
+        }
+    }
+
+    return written_chars;
+}
+
 char *gamma_board(gamma_t *g) {
     if (g == NULL) {
         return NULL;
@@ -456,7 +482,7 @@ char *gamma_board(gamma_t *g) {
 
     const uint64_t total_fields = (g->width) * g->height;
     // + g->height aby mieć miejsce na '\n', +100 to dodatkowe miejsce na \0 i
-    // numery graczy powyżej 9; jeśli zabraknie miejsca wywołany zostanie realloc
+    // numery graczy powyżej 9; jeśli zabraknie miejsca wywołany zostanie realloc.
     uint64_t allocated_space = (total_fields + g->height + 100) * sizeof(char);
     char *str = malloc(allocated_space);
     if (str == NULL) {
@@ -469,7 +495,9 @@ char *gamma_board(gamma_t *g) {
     for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
         for (uint32_t x = 0; x < g->width; x++) {
             const uint64_t left_buffer_space = allocated_space - pos;
-            if (left_buffer_space < 50) { // maks wymagane na jedno pole to 35 bajtow
+
+            if (left_buffer_space < 50) {
+                // Maks wymagane na jedno pole to ~15 bajtów.
                 uint64_t extra_space = (total_fields - written_fields) + 50;
                 allocated_space += extra_space;
                 str = realloc(str, allocated_space);
@@ -479,19 +507,7 @@ char *gamma_board(gamma_t *g) {
                 }
             }
 
-            if (g->board[y][x].empty) {
-                str[pos++] = '.';
-                continue;
-            }
-
-            uint32_t player = g->board[y][x].player;
-            if (player < 10) {
-                str[pos++] = ASCII_ZERO + player;
-            } else {
-                str[pos++] = '[';
-                pos += uint_to_string(&str[pos], player);
-                str[pos++] = ']';
-            }
+            pos += render_field(&str[pos], &g->board[y][x]);
         }
         str[pos++] = '\n';
     }
