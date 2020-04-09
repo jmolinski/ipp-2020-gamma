@@ -18,10 +18,10 @@
  * Struktura przechowująca stan pola.
  */
 struct field {
-    uint32_t player;
+    uint32_t player; /**< flag for low speed */
     bool empty;
     field_t *parent; // for find-union algorithm
-    uint64_t size;   // for find-union algorithm
+    uint8_t rank;    // for find-union algorithm
 };
 
 /**
@@ -49,12 +49,47 @@ struct gamma {
     field_t **board;
 };
 
+field_t *fu_find(field_t *field) {
+    // path halving method
+
+    while (field->parent != field) {
+        field->parent = field->parent->parent;
+        field = field->parent;
+    }
+
+    return field;
+}
+
+bool fu_union(field_t *x, field_t *y) {
+    // Metoda union by rank.
+
+    field_t *x_root = fu_find(x);
+    field_t *y_root = fu_find(y);
+
+    if (x_root == y_root) {
+        // x and y are already in the same set
+        return false;
+    }
+
+    if (x_root->rank < y_root->rank) {
+        field_t *tmp = x_root;
+        x_root = y_root;
+        y_root = tmp;
+    }
+
+    y_root->parent = x_root;
+    if (x_root->rank == y_root->rank) {
+        x_root->rank += 1;
+    }
+
+    return true;
+}
+
 /** @brief Alokuje planszę do gry Gamma.
- * Alokuje planszę o zadanych wymiarach skladającą się
+ * Alokuje planszę o zadanych wymiarach składającą się z pustych pól.
  * @param[in] width       – szerokość planszy,
  * @param[in] height      – wysokoć planszy.
- * @return Wartość @p true, jeśli pole nalezy do planszy, a @p false
- * w przeciwnym przypadku.
+ * @return Wskaźnik na planszę lub @p NULL jesli nie udało się zaalokować pamięci.
  */
 field_t **allocate_board(uint32_t width, uint32_t height) {
     field_t **board = malloc(height * sizeof(field_t *));
@@ -64,14 +99,14 @@ field_t **allocate_board(uint32_t width, uint32_t height) {
 
     uint32_t allocated_rows = 0;
     for (; allocated_rows < height; allocated_rows++) {
-        board[allocated_rows] = malloc((uint64_t)width * sizeof(field_t));
+        board[allocated_rows] = malloc((uint64_t)width * sizeof(struct field));
         if (board[allocated_rows] == NULL) {
             break;
         }
         for (uint32_t i = 0; i < width; i++) {
             board[allocated_rows][i].empty = true;
             board[allocated_rows][i].parent = &board[allocated_rows][i];
-            board[allocated_rows][i].size = 1;
+            board[allocated_rows][i].rank = 1;
             board[allocated_rows][i].player = 0;
         }
     }
@@ -86,41 +121,6 @@ field_t **allocate_board(uint32_t width, uint32_t height) {
     free(board);
 
     return NULL;
-}
-
-field_t *fu_find(field_t *field) {
-    // path halving method
-
-    while (field->parent != field) {
-        field->parent = field->parent->parent;
-        field = field->parent;
-    }
-
-    return field;
-}
-
-bool fu_union(field_t *x, field_t *y) {
-    // union by size method
-
-    field_t *x_root = fu_find(x);
-    field_t *y_root = fu_find(y);
-
-    if (x_root == y_root) {
-        // x and y are already in the same set
-        return false;
-    }
-
-    if (x_root->size < y_root->size) {
-        field_t *tmp = x_root;
-        x_root = y_root;
-        y_root = tmp;
-    }
-
-    // merge y_root into x_root
-    y_root->parent = x_root;
-    x_root->size = x_root->size + y_root->size;
-
-    return true;
 }
 
 gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t areas) {
@@ -312,13 +312,13 @@ bool reindex_areas(gamma_t *g) {
                 continue;
             }
             g->board[row][column].parent = &g->board[row][column];
-            g->board[row][column].size = 1;
+            g->board[row][column].rank = 1;
             uint32_t player_index = g->board[row][column].player % g->players_num;
             g->players[player_index].areas++;
         }
     }
 
-    // Utwórz na nowo sety find-union [ O(mn) ]
+    // Utwórz na nowo sety find-union. [ O(mn) ]
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
