@@ -10,8 +10,6 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#define ASCII_ZERO 48
-
 /**
  * Struktura przechowująca stan pola.
  */
@@ -197,6 +195,15 @@ static inline bool is_within_board(gamma_t *g, int64_t x, int64_t y) {
     return x >= 0 && y >= 0 && g->width > x && g->height > y;
 }
 
+/** @brief Sprawdza czy pole należy do zadanego gracza.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza,
+ * @param[in] player  – numer gracza.
+ * @return Wartość @p true, jeśli pole nalezy do gracza, a @p false
+ * w przeciwnym przypadku lub jeśli pole nie należy do planszy.
+ */
 static inline bool belongs_to_player(gamma_t *g, int64_t x, int64_t y,
                                      uint32_t player) {
     if (!is_within_board(g, x, y) || g->board[y][x].empty) {
@@ -205,6 +212,15 @@ static inline bool belongs_to_player(gamma_t *g, int64_t x, int64_t y,
     return g->board[y][x].player == player;
 }
 
+/** @brief Sprawdza czy zadane pole sąsiaduje z polem zadanego gracza.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza,
+ * @param[in] player  – numer gracza.
+ * @return Wartość @p true, jeśli pole sąsiaduje z dowolnym polem zadanego gracza,
+ * a @p false w przeciwnym przypadku.
+ */
 static inline bool has_neighbor(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
     return belongs_to_player(g, x + 1, y, player) ||
            belongs_to_player(g, x - 1, y, player) ||
@@ -212,10 +228,27 @@ static inline bool has_neighbor(gamma_t *g, int64_t x, int64_t y, uint32_t playe
            belongs_to_player(g, x, y - 1, player);
 }
 
+/** @brief Zwraca wskaźnik na pole o zadanych koordynatach.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza.
+ * @return Wartość @p true, jeśli pole sąsiaduje z dowolnym polem zadanego gracza,
+ * a @p false w przeciwnym przypadku.
+ */
 static inline field_t *get_field(gamma_t *g, int64_t x, int64_t y) {
     return is_within_board(g, x, y) ? &g->board[y][x] : NULL;
 }
 
+/** @brief Łączy (union z find-union) pole z sąsiednimi obszarami tego samego gracza.
+ * Wykonuje operację union na danym polu i na wszystkich sąsiadujacych z nim polami
+ * należącymi do tego samego gracza co zadane pole.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza.
+ * @return Liczbę pomyślnie przeprowadzonych operacji union (0, 1, 2, 3 lub 4).
+ */
 uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
     field_t **board = g->board;
     field_t *this_field = &board[row][column];
@@ -235,6 +268,16 @@ uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
     return merged_areas;
 }
 
+/** @brief Wyznacza ile nowych pustych pól sąsiaduje z danym polem.
+ * Wyznacza liczbę pustych pól sąsiadujących z zadanym polem takich, że nie
+ * sąsiadują one z żadnym polem zadanego gracza.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza,
+ * @param[in] player  – numer gracza.
+ * @return Liczbę pól spełniających zadany warunek (0, 1, 2, 3 lub 4).
+ */
 uint8_t new_zero_cost_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
     uint8_t new_nearby_empty_fields = 0;
     for (int dx = -1; dx <= 1; dx++) {
@@ -251,6 +294,14 @@ uint8_t new_zero_cost_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) 
     return new_nearby_empty_fields;
 }
 
+/** @brief Dekrementuje liczbę pustych pól graniczacych z obszarami każdego z sąsiadów.
+ * Dla każdego gracza, który posiada pole graniczące z polem o zadanych koordynatach
+ * dekrementuje liczbę pustych miejsc graniczących z obszarami tego gracza.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza.
+ */
 void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
     field_t *neighbors[4] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
                              get_field(g, x, y + 1), get_field(g, x, y - 1)};
@@ -481,6 +532,7 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
         n /= 10;
     } while (n != 0);
 
+    const char ASCII_ZERO = '0';
     for (int p = written - 1; p >= 0; p--) {
         *buffer++ = ASCII_ZERO + digits[p];
     }
