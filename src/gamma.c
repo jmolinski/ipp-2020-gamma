@@ -19,7 +19,7 @@ struct field {
     uint32_t player; /**< Numer gracza zajmującego pole. */
     bool empty;      /**< Informacja czy dane pole jest puste. */
     field_t *parent; /**< Rodzic pola w danym obszarze (find-union). */
-    uint8_t rank;    /**< Ranga obszaru, ktorego rodzicem jest to pole (find-union). */
+    uint8_t rank;    /**< Ranga obszaru, którego rodzicem jest to pole (find-union). */
 };
 
 /**
@@ -50,9 +50,16 @@ struct gamma {
     field_t **board;   /**< Tablica 2D przedstawiająca planszę. */
 };
 
+/** @brief Operacja find (find-union) na planszy gry.
+ * Zwraca najstarszego rodzica (lidera) należacego do danego obszaru na planszy.
+ * (Operacja na strukturze danych find-union).
+ * Funkcja stosuje metodę path-halving skracania ścieżki do najstarszego rodzica.
+ * Złożoność O(a(n)) gdzie a to odwrotna funcja Ackermanna [efektywnie O(1)].
+ * @param[in,out] field    – wskaźnik na dowolne pole należące do planszy.
+ * @return Wskaźnik na jednoznacznie wyznaczonego przedstawiciela danego obszaru
+ * (find-union).
+ */
 field_t *fu_find(field_t *field) {
-    // path halving method
-
     while (field->parent != field) {
         field->parent = field->parent->parent;
         field = field->parent;
@@ -61,14 +68,21 @@ field_t *fu_find(field_t *field) {
     return field;
 }
 
+/** @brief Operacja union (find-union) na obszarach z planszy gry.
+ * Łączy dwa rozłączne obszary na planszy. (Operacja na strukturze danych find-union).
+ * Funkcja stosuje metodę union by rank do wyznaczania nowego lidera po połączeniu
+ * dwóch obszarów.
+ * Złożoność O(a(n)) gdzie a to odwrotna funcja Ackermanna [efektywnie O(1)].
+ * @param[in] x    – wskaźnik na dowolne pole należące do planszy,
+ * @param[in] y    – wskaźnik na dowolne pole należące do planszy.
+ * @return Wartość logiczna @p false jeżeli pola należały już do tego samego obszaru,
+ * @p true jeżeli obszary zostały połączone.
+ */
 bool fu_union(field_t *x, field_t *y) {
-    // Metoda union by rank.
-
     field_t *x_root = fu_find(x);
     field_t *y_root = fu_find(y);
 
     if (x_root == y_root) {
-        // x and y are already in the same set
         return false;
     }
 
