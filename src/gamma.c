@@ -8,8 +8,6 @@
 
 #include "gamma.h"
 #include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
 
 #define ASCII_ZERO 48
@@ -18,35 +16,38 @@
  * Struktura przechowująca stan pola.
  */
 struct field {
-    uint32_t player; /**< flag for low speed */
-    bool empty;
-    field_t *parent; // for find-union algorithm
-    uint8_t rank;    // for find-union algorithm
+    uint32_t player; /**< Numer gracza zajmującego pole. */
+    bool empty;      /**< Informacja czy dane pole jest puste. */
+    field_t *parent; /**< Rodzic pola w danym obszarze (find-union). */
+    uint8_t rank;    /**< Ranga obszaru, ktorego rodzicem jest to pole (find-union). */
 };
 
 /**
  * Struktura przechowująca stan gracza.
  */
 struct player {
-    uint64_t occupied_fields;
-    uint64_t zero_cost_move_fields;
-    uint32_t areas;
-    bool golden_move_done;
+    uint64_t occupied_fields;       /**< Liczba pól zajmowanych przez gracza. */
+    uint64_t zero_cost_move_fields; /**< Liczba pól, na których gracz może postawić
+                                     * pionek bez zwiększania liczby rozłącznych
+                                     * obszarów. */
+    uint32_t areas; /**< Liczba rozłącznych obszarów zajmowanych przez gracza. */
+    bool golden_move_done; /**< Informacja czy gracz wykonał już złoty ruch. */
 };
 
 /**
  * Struktura przechowująca stan gry.
  */
 struct gamma {
-    uint32_t max_areas;
-    uint32_t players_num;
-    uint32_t height;
-    uint32_t width;
+    uint32_t max_areas;   /**< Maksymalna liczba rozłącznych obszarów zajmowanych
+                           * przez gracza. */
+    uint32_t players_num; /**< Liczba graczy. */
+    uint32_t height;      /**< Liczba rzędów planszy. */
+    uint32_t width;       /**< Liczba kolumn planszy. */
 
-    uint64_t occupied_fields;
+    uint64_t occupied_fields; /**< Łączna liczba zajętych pól na planszy. */
 
-    player_t *players;
-    field_t **board;
+    player_t *players; /**< Tablica danych graczy. */
+    field_t **board;   /**< Tablica 2D przedstawiająca planszę. */
 };
 
 field_t *fu_find(field_t *field) {
@@ -196,10 +197,7 @@ static inline bool has_neighbor(gamma_t *g, int64_t x, int64_t y, uint32_t playe
 }
 
 static inline field_t *get_field(gamma_t *g, int64_t x, int64_t y) {
-    if (!is_within_board(g, x, y)) {
-        return NULL;
-    }
-    return &g->board[y][x];
+    return is_within_board(g, x, y) ? &g->board[y][x] : NULL;
 }
 
 uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
@@ -253,6 +251,8 @@ void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
         y >= g->height) {
@@ -284,8 +284,6 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 
     return true;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Na nowo tworzy strukture find-union obszarów.
@@ -430,7 +428,7 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
  * Bufor musi być odpowiedio długi aby pomieścić wszystkie cyfry.
  * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik.
  * @param[in] n - liczba do skonwertowania.
- * @return Liczba zapisanych bajtów.
+ * @return Liczbę zapisanych bajtów.
  */
 static inline int uint_to_string(char *buffer, uint32_t n) {
     char digits[11]; // max_len = round(log10(2^32)) = 10
@@ -455,7 +453,7 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
  * dużo wolnego miejsca aby pomieścić wszystkie znaki.
  * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik,
  * @param[in] field - pole.
- * @return Liczba zapisanych bajtów.
+ * @return Liczbę zapisanych bajtów.
  */
 uint8_t render_field(char *buffer, field_t *field) {
     uint8_t written_chars = 0;
