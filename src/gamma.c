@@ -310,19 +310,12 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 }
 
 /**
- * @brief Na nowo tworzy strukture find-union obszarów.
- * Na nowo tworzy strukture find-union obszarów i dla każdego gracza aktualizuje
- * liczbe posiadanych obszarów.
+ * @brief Ustawia metadane struktury danych find-union na wartości wyjściowe.
+ * Ustawia wartosci field.parent oraz field.rank na wartości wyjściowe oraz resetuje
+ * liczbę obszarów gracza.
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry.
- * @return Wartość @p true, jeżeli po zakończeniu każdy z graczy ma nie więcej niż
- * @p g->max_areas obszarów, @p false w przeciwnym przypadku.
  */
-bool reindex_areas(gamma_t *g) {
-    for (uint32_t p = 0; p < g->players_num; p++) {
-        g->players[p].areas = 0;
-    }
-
-    // Zresetuj pola z danymi FU w całej planszy. [ O(mn) ]
+void reset_find_union_metadata(gamma_t *g) {
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
@@ -334,8 +327,24 @@ bool reindex_areas(gamma_t *g) {
             g->players[player_index].areas++;
         }
     }
+}
 
-    // Utwórz na nowo sety find-union. [ O(mn) ]
+/**
+ * @brief Na nowo tworzy strukture find-union obszarów.
+ * Na nowo tworzy strukture find-union obszarów i dla każdego gracza aktualizuje
+ * liczbe posiadanych obszarów.
+ * Złożoność O(height*width) + O(players_num)
+ * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry.
+ * @return Wartość @p true, jeżeli po zakończeniu każdy z graczy ma nie więcej niż
+ * @p g->max_areas obszarów, @p false w przeciwnym przypadku.
+ */
+bool reindex_areas(gamma_t *g) {
+    for (uint32_t p = 0; p < g->players_num; p++)
+        g->players[p].areas = 0;
+
+    reset_find_union_metadata(g);
+
+    // Utwórz na nowo sety find-union.
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
