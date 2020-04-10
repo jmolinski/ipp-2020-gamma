@@ -11,6 +11,11 @@
 #include <stdlib.h>
 
 /**
+ * Kod ASCII odpowiadający cyfrze zero.
+ */
+#define ASCII_ZERO 48
+
+/**
  * Struktura przechowująca stan pola.
  */
 struct field {
@@ -518,8 +523,8 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
  * Zapisuje cyfry zadanej liczby nieujemnej jako znaki w buforze.
  * Bufor musi być odpowiedio długi aby pomieścić wszystkie cyfry.
  * Złożoność O(1).
- * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik.
- * @param[in] n - liczba do skonwertowania.
+ * @param[in,out] buffer    - bufor do którego zapisany ma zostać wynik.
+ * @param[in] n             - liczba do skonwertowania.
  * @return Liczbę zapisanych bajtów.
  */
 static inline int uint_to_string(char *buffer, uint32_t n) {
@@ -532,7 +537,6 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
         n /= 10;
     } while (n != 0);
 
-    const char ASCII_ZERO = '0';
     for (int p = written - 1; p >= 0; p--) {
         *buffer++ = ASCII_ZERO + digits[p];
     }
@@ -545,8 +549,8 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
  * Zapisuje tekstową reprezentację pola do bufora. Bufor musi mieć odpowiednio
  * dużo wolnego miejsca aby pomieścić wszystkie znaki.
  * Złożoność O(1).
- * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik,
- * @param[in] field - pole.
+ * @param[in,out] buffer   - bufor do którego zapisany ma zostać wynik,
+ * @param[in] field        - pole.
  * @return Liczbę zapisanych bajtów.
  */
 uint8_t render_field(char *buffer, field_t *field) {
@@ -567,6 +571,25 @@ uint8_t render_field(char *buffer, field_t *field) {
     return written_chars;
 }
 
+/**
+ * @brief Rozszerza zadany zadany bufor znakowy.
+ * Rozszerza zadany bufor znakowy o rozmiar nie mniejszy niz minimalny zadany jako
+ * parametr.
+ * @param[in,out] buffer              - bufor, który ma zostać rozszerzony,
+ * @param[in,out] size                - pole,
+ * @param[in,out] min_extra_space     - minimalna ilość wymaganego dodatkowo miejsca,
+ * @return Wskaźnik na rozszerzony bufor lub NULL jeżeli operacja się nie powiedzie.
+ */
+char *extend_buffer(char *buffer, uint64_t *size, uint64_t min_extra_space) {
+    *size += (uint64_t)(min_extra_space * 1.5) * sizeof(char);
+    buffer = realloc(buffer, *size);
+    if (buffer == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+    return buffer;
+}
+
 char *gamma_board(gamma_t *g) {
     if (g == NULL) {
         return NULL;
@@ -580,17 +603,11 @@ char *gamma_board(gamma_t *g) {
     uint64_t written_fields = 0;
     for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
         for (uint32_t x = 0; x < g->width; x++) {
-            const uint64_t left_buffer_space = allocated_space - pos;
-
-            if (left_buffer_space < 50) {
-                // Maks wymagane na jedno pole to ~15 bajtów.
+            if ((allocated_space - pos) < 50) {
                 uint64_t left_fields = total_fields - written_fields;
-                allocated_space += (uint64_t)(left_fields * 1.5) * sizeof(char);
-                str = realloc(str, allocated_space);
-                if (str == NULL) {
-                    errno = ENOMEM;
+                str = extend_buffer(str, &allocated_space, left_fields);
+                if (str == NULL)
                     return NULL;
-                }
             }
 
             pos += render_field(&str[pos], &g->board[y][x]);
