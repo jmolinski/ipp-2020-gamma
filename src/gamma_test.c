@@ -17,6 +17,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Link do mojego repozytorium z testami (testy pochodzą od różnych autorów).
+ * https://github.com/jmolinski/ipp-2020-testy/
+*/
+
 /**
  * Tak ma wyglądać plansza po wykonaniu wszystkich testów.
  */

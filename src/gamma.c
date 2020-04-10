@@ -102,6 +102,7 @@ bool fu_union(field_t *x, field_t *y) {
 
 /** @brief Alokuje planszę do gry Gamma.
  * Alokuje planszę o zadanych wymiarach składającą się z pustych pól.
+ * Złożoność O(height*width).
  * @param[in] width       – szerokość planszy,
  * @param[in] height      – wysokoć planszy.
  * @return Wskaźnik na planszę lub @p NULL jesli nie udało się zaalokować pamięci.
@@ -184,7 +185,8 @@ void gamma_delete(gamma_t *g) {
     free(g);
 }
 
-/** @brief Sprawdza czy pole nalezy do planszy.
+/** @brief Sprawdza czy pole należy do planszy.
+ * Złożoność O(1).
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] x       – numer kolumny,
  * @param[in] y       – numer wiersza.
@@ -265,25 +267,33 @@ void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/** @brief Sprawdza czy zajęcie pola przez gracza sprawi, że przekroczy on limit
+ * obszarów.
+ * Złożoność O(1).
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] player  – numer gracza,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza.
+ * @return Wartość @p true jeżeli przekroczony zostałby limit obszarów, @p false
+ * w przeciwnym przypadku.
+ */
+bool would_exceed_areas_limit(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+    if (g->players[player % g->players_num].areas != g->max_areas) {
+        return false;
+    }
+    return !has_neighbor(g, x, y, player);
+}
 
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
         y >= g->height) {
         return false;
     }
-    if (!g->board[y][x].empty) {
+    if (!g->board[y][x].empty || would_exceed_areas_limit(g, player, x, y)) {
         return false;
     }
 
     const uint32_t player_index = player % g->players_num;
-
-    if (g->players[player_index].areas == g->max_areas) {
-        if (!has_neighbor(g, x, y, player)) {
-            return false;
-        }
-    }
-
     int new_border_empty_fields = new_zero_cost_fields(g, x, y, player);
 
     g->board[y][x].player = player;
@@ -337,50 +347,57 @@ bool reindex_areas(gamma_t *g) {
         }
     }
 
-    // Sprawdź czy każdy gracz ma nie wiecej niz g->max_areas obszarów.
-    for (uint32_t p = 0; p < g->players_num; p++) {
-        if (g->players[p].areas > g->max_areas) {
+    for (uint32_t p = 0; p < g->players_num; p++)
+        if (g->players[p].areas > g->max_areas)
             return false;
-        }
-    }
 
     return true;
 }
 
-bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+/**
+ * @brief Sprawdza czy możliwe jest podjęcie próby wykonania złotego ruchu.
+ * Złożoność O(1)
+ * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] player  – numer gracza,
+ * @param[in] x       – numer kolumny,
+ * @param[in] y       – numer wiersza.
+ * @return Wartość @p true, jeżeli argumenty są nieprawidłowe lub jeśli wykonanie
+ * złotego ruchu na pewno nie jest możliwe, @p false jeśli można podjąć próbę
+ * wykonania ruchu.
+ */
+bool is_golden_move_impossible(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
         y >= g->height) {
-        return false;
+        return true;
     }
-    if (g->board[y][x].empty || g->board[y][x].player == player) {
+    if (g->board[y][x].empty || g->board[y][x].player == player ||
+        g->players[player % g->players_num].golden_move_done ||
+        would_exceed_areas_limit(g, player, x, y)) {
+        return true;
+    }
+
+    return false;
+}
+
+bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+    if (is_golden_move_impossible(g, player, x, y)) {
         return false;
     }
 
-    const uint32_t player_index = player % g->players_num;
-    if (g->players[player_index].golden_move_done) {
-        return false;
-    }
-    if (g->players[player_index].areas == g->max_areas) {
-        if (!has_neighbor(g, x, y, player)) {
-            return false;
-        }
-    }
-
-    // Ta wartość musi zostać obliczona przed podmienieniem gracza.
     int new_border_empty_fields = new_zero_cost_fields(g, x, y, player);
 
     uint32_t previous_player = g->board[y][x].player;
     uint32_t previous_player_index = previous_player % g->players_num;
-    g->board[y][x].player = player;
 
-    bool valid_state = reindex_areas(g);
-    if (!valid_state) {
-        // Przekroczono limit obszarów dla któregoś z graczy.
+    g->board[y][x].player = player;
+    bool areas_limit_exceeded = reindex_areas(g);
+    if (!areas_limit_exceeded) {
         g->board[y][x].player = previous_player;
         reindex_areas(g);
         return false;
     }
 
+    const uint32_t player_index = player % g->players_num;
     g->players[player_index].occupied_fields++;
     g->players[player_index].zero_cost_move_fields += new_border_empty_fields;
     g->players[player_index].golden_move_done = true;
@@ -440,6 +457,7 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
  * @brief Zmienia liczbę w napis.
  * Zapisuje cyfry zadanej liczby nieujemnej jako znaki w buforze.
  * Bufor musi być odpowiedio długi aby pomieścić wszystkie cyfry.
+ * Złożoność O(1).
  * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik.
  * @param[in] n - liczba do skonwertowania.
  * @return Liczbę zapisanych bajtów.
@@ -465,6 +483,7 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
  * @brief Zapisuje tekstową reprezentację pola do bufora.
  * Zapisuje tekstową reprezentację pola do bufora. Bufor musi mieć odpowiednio
  * dużo wolnego miejsca aby pomieścić wszystkie znaki.
+ * Złożoność O(1).
  * @param[in,out] buffer - bufor do którego zapisany ma zostać wynik,
  * @param[in] field - pole.
  * @return Liczbę zapisanych bajtów.
@@ -493,14 +512,8 @@ char *gamma_board(gamma_t *g) {
     }
 
     const uint64_t total_fields = (g->width) * g->height;
-    // + g->height aby mieć miejsce na '\n', +100 to dodatkowe miejsce na \0 i
-    // numery graczy powyżej 9; jeśli zabraknie miejsca wywołany zostanie realloc.
-    uint64_t allocated_space = (total_fields + g->height + 100) * sizeof(char);
-    char *str = malloc(allocated_space);
-    if (str == NULL) {
-        errno = ENOMEM;
-        return NULL;
-    }
+    uint64_t allocated_space = 0;
+    char *str = NULL;
 
     uint64_t pos = 0;
     uint64_t written_fields = 0;
@@ -510,8 +523,8 @@ char *gamma_board(gamma_t *g) {
 
             if (left_buffer_space < 50) {
                 // Maks wymagane na jedno pole to ~15 bajtów.
-                uint64_t extra_space = (total_fields - written_fields) + 50;
-                allocated_space += extra_space;
+                uint64_t left_fields = total_fields - written_fields;
+                allocated_space += (uint64_t)(left_fields * 1.5) * sizeof(char);
                 str = realloc(str, allocated_space);
                 if (str == NULL) {
                     errno = ENOMEM;
