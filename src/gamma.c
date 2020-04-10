@@ -249,9 +249,9 @@ static inline field_t *get_field(gamma_t *g, int64_t x, int64_t y) {
  * Wykonuje operację union na danym polu i na wszystkich sąsiadujacych z nim polami
  * należącymi do tego samego gracza co zadane pole.
  * Złożoność O(1).
- * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] x       – numer kolumny,
- * @param[in] y       – numer wiersza.
+ * @param[in] g        – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] column   – numer kolumny,
+ * @param[in] row      – numer wiersza.
  * @return Liczbę pomyślnie przeprowadzonych operacji union (0, 1, 2, 3 lub 4).
  */
 uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
