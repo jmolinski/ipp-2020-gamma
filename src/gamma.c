@@ -573,7 +573,8 @@ uint8_t get_uint_length(uint64_t value) {
  * dużo wolnego miejsca aby pomieścić wszystkie znaki.
  * Złożoność O(1).
  * @param[in,out] buffer   - bufor do którego zapisany ma zostać wynik,
- * @param[in] field        - pole.
+ * @param[in] field        - pole,
+ * @param[in] min_width    - minimalna szerokość wyrenderowanego pola.
  * @return Liczbę zapisanych bajtów.
  */
 static inline uint8_t render_field(char *buffer, field_t *field, uint8_t min_width) {
