@@ -18,34 +18,24 @@
 /**
  * Struktura przechowująca stan pola.
  */
-typedef struct field field_t;
+typedef struct field {
+    uint32_t player;      /**< Numer gracza zajmującego pole. */
+    bool empty;           /**< Informacja czy dane pole jest puste. */
+    struct field *parent; /**< Rodzic pola w danym obszarze (find-union). */
+    uint8_t rank; /**< Ranga obszaru, którego rodzicem jest to pole (find-union). */
+} field_t;
 
 /**
  * Struktura przechowująca stan gracza.
  */
-typedef struct player player_t;
-
-/**
- * Struktura przechowująca stan pola.
- */
-struct field {
-    uint32_t player; /**< Numer gracza zajmującego pole. */
-    bool empty;      /**< Informacja czy dane pole jest puste. */
-    field_t *parent; /**< Rodzic pola w danym obszarze (find-union). */
-    uint8_t rank;    /**< Ranga obszaru, którego rodzicem jest to pole (find-union). */
-};
-
-/**
- * Struktura przechowująca stan gracza.
- */
-struct player {
+typedef struct player {
     uint64_t occupied_fields;     /**< Liczba pól zajmowanych przez gracza. */
     uint64_t border_empty_fields; /**< Liczba pól, na których gracz może postawić
                                    * pionek bez zwiększania liczby rozłącznych
                                    * obszarów. */
     uint32_t areas; /**< Liczba rozłącznych obszarów zajmowanych przez gracza. */
     bool golden_move_done; /**< Informacja czy gracz wykonał już złoty ruch. */
-};
+} player_t;
 
 /**
  * Struktura przechowująca stan gry.
