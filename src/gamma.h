@@ -28,8 +28,7 @@ typedef struct gamma gamma_t;
  * @return Wskaźnik na utworzoną strukturę lub NULL, gdy nie udało się
  * zaalokować pamięci lub któryś z parametrów jest niepoprawny.
  */
-gamma_t* gamma_new(uint32_t width, uint32_t height,
-                   uint32_t players, uint32_t areas);
+gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t areas);
 
 /** @brief Usuwa strukturę przechowującą stan gry.
  * Usuwa z pamięci strukturę wskazywaną przez @p g.
@@ -109,6 +108,6 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player);
  * @return Wskaźnik na zaalokowany bufor zawierający napis opisujący stan
  * planszy lub NULL, jeśli nie udało się zaalokować pamięci.
  */
-char* gamma_board(gamma_t *g);
+char *gamma_board(gamma_t *g);
 
 #endif /* GAMMA_H */
