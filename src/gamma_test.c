@@ -94,7 +94,7 @@ int main() {
     char *p = gamma_board(g);
     assert(p);
     assert(strcmp(p, board) == 0);
-    printf(p);
+    printf("%s", p);
     free(p);
 
     gamma_delete(g);

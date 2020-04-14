@@ -18,6 +18,16 @@
 /**
  * Struktura przechowująca stan pola.
  */
+typedef struct field field_t;
+
+/**
+ * Struktura przechowująca stan gracza.
+ */
+typedef struct player player_t;
+
+/**
+ * Struktura przechowująca stan pola.
+ */
 struct field {
     uint32_t player; /**< Numer gracza zajmującego pole. */
     bool empty;      /**< Informacja czy dane pole jest puste. */
@@ -29,10 +39,10 @@ struct field {
  * Struktura przechowująca stan gracza.
  */
 struct player {
-    uint64_t occupied_fields;       /**< Liczba pól zajmowanych przez gracza. */
-    uint64_t zero_cost_move_fields; /**< Liczba pól, na których gracz może postawić
-                                     * pionek bez zwiększania liczby rozłącznych
-                                     * obszarów. */
+    uint64_t occupied_fields;     /**< Liczba pól zajmowanych przez gracza. */
+    uint64_t border_empty_fields; /**< Liczba pól, na których gracz może postawić
+                                   * pionek bez zwiększania liczby rozłącznych
+                                   * obszarów. */
     uint32_t areas; /**< Liczba rozłącznych obszarów zajmowanych przez gracza. */
     bool golden_move_done; /**< Informacja czy gracz wykonał już złoty ruch. */
 };
@@ -62,7 +72,7 @@ struct gamma {
  * @return Wskaźnik na jednoznacznie wyznaczonego przedstawiciela danego obszaru
  * (find-union).
  */
-field_t *fu_find(field_t *field) {
+static inline field_t *fu_find(field_t *field) {
     while (field->parent != field) {
         field->parent = field->parent->parent;
         field = field->parent;
@@ -81,7 +91,7 @@ field_t *fu_find(field_t *field) {
  * @return Wartość logiczna @p false jeżeli pola należały już do tego samego obszaru,
  * @p true jeżeli obszary zostały połączone.
  */
-bool fu_union(field_t *x, field_t *y) {
+static inline bool fu_union(field_t *x, field_t *y) {
     field_t *x_root = fu_find(x);
     field_t *y_root = fu_find(y);
 
@@ -110,7 +120,7 @@ bool fu_union(field_t *x, field_t *y) {
  * @param[in] height      – wysokoć planszy.
  * @return Wskaźnik na planszę lub @p NULL jesli nie udało się zaalokować pamięci.
  */
-field_t **allocate_board(uint32_t width, uint32_t height) {
+static field_t **allocate_board(uint32_t width, uint32_t height) {
     field_t **board = malloc(height * sizeof(field_t *));
     if (board == NULL) {
         return NULL;
@@ -254,7 +264,7 @@ static inline field_t *get_field(gamma_t *g, int64_t x, int64_t y) {
  * @param[in] row      – numer wiersza.
  * @return Liczbę pomyślnie przeprowadzonych operacji union (0, 1, 2, 3 lub 4).
  */
-uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
+static inline uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
     field_t **board = g->board;
     field_t *this_field = &board[row][column];
     const uint32_t player = this_field->player;
@@ -283,7 +293,8 @@ uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
  * @param[in] player  – numer gracza.
  * @return Liczbę pól spełniających zadany warunek (0, 1, 2, 3 lub 4).
  */
-uint8_t new_zero_cost_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) {
+static inline uint8_t new_border_empty_fields(gamma_t *g, int64_t x, int64_t y,
+                                              uint32_t player) {
     uint8_t new_nearby_empty_fields = 0;
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
@@ -307,7 +318,8 @@ uint8_t new_zero_cost_fields(gamma_t *g, int64_t x, int64_t y, uint32_t player) 
  * @param[in] x       – numer kolumny,
  * @param[in] y       – numer wiersza.
  */
-void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
+static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x,
+                                                           int64_t y) {
     field_t *neighbors[4] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
                              get_field(g, x, y + 1), get_field(g, x, y - 1)};
     for (int i = 0; i < 4; i++) {
@@ -315,7 +327,7 @@ void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
             continue;
 
         uint32_t neighbor = neighbors[i]->player;
-        g->players[neighbor % g->players_num].zero_cost_move_fields--;
+        g->players[neighbor % g->players_num].border_empty_fields--;
 
         for (int j = i; j < 4; j++)
             if (neighbors[j] != NULL && neighbors[j]->player == neighbor)
@@ -333,7 +345,8 @@ void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x, int64_t y) {
  * @return Wartość @p true jeżeli przekroczony zostałby limit obszarów, @p false
  * w przeciwnym przypadku.
  */
-bool would_exceed_areas_limit(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+static inline bool would_exceed_areas_limit(gamma_t *g, uint32_t player, uint32_t x,
+                                            uint32_t y) {
     if (g->players[player % g->players_num].areas != g->max_areas) {
         return false;
     }
@@ -350,7 +363,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     }
 
     const uint32_t player_index = player % g->players_num;
-    int new_border_empty_fields = new_zero_cost_fields(g, x, y, player);
+    int border_empty_fields_to_add = new_border_empty_fields(g, x, y, player);
 
     g->board[y][x].player = player;
     g->board[y][x].empty = false;
@@ -358,7 +371,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     g->players[player_index].areas++;
     g->players[player_index].occupied_fields++;
     g->players[player_index].areas -= union_neighbors(g, x, y);
-    g->players[player_index].zero_cost_move_fields += new_border_empty_fields;
+    g->players[player_index].border_empty_fields += border_empty_fields_to_add;
 
     decrement_neighbors_border_empty_fields(g, x, y);
 
@@ -371,7 +384,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
  * liczbę obszarów gracza.
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry.
  */
-void reset_find_union_metadata(gamma_t *g) {
+static inline void reset_find_union_metadata(gamma_t *g) {
     for (int64_t row = 0; row < g->height; row++) {
         for (int64_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
@@ -394,7 +407,7 @@ void reset_find_union_metadata(gamma_t *g) {
  * @return Wartość @p true, jeżeli po zakończeniu każdy z graczy ma nie więcej niż
  * @p g->max_areas obszarów, @p false w przeciwnym przypadku.
  */
-bool reindex_areas(gamma_t *g) {
+static bool reindex_areas(gamma_t *g) {
     for (uint32_t p = 0; p < g->players_num; p++)
         g->players[p].areas = 0;
 
@@ -430,7 +443,8 @@ bool reindex_areas(gamma_t *g) {
  * złotego ruchu na pewno nie jest możliwe, @p false jeśli można podjąć próbę
  * wykonania ruchu.
  */
-bool is_golden_move_impossible(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
+static inline bool is_golden_move_impossible(gamma_t *g, uint32_t player, uint32_t x,
+                                             uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
         y >= g->height) {
         return true;
@@ -449,7 +463,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         return false;
     }
 
-    int new_border_empty_fields = new_zero_cost_fields(g, x, y, player);
+    int border_empty_fields_to_add = new_border_empty_fields(g, x, y, player);
 
     uint32_t previous_player = g->board[y][x].player;
     uint32_t previous_player_index = previous_player % g->players_num;
@@ -464,12 +478,13 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 
     const uint32_t player_index = player % g->players_num;
     g->players[player_index].occupied_fields++;
-    g->players[player_index].zero_cost_move_fields += new_border_empty_fields;
+    g->players[player_index].border_empty_fields += border_empty_fields_to_add;
     g->players[player_index].golden_move_done = true;
 
-    const int lost_border_empty_fields = new_zero_cost_fields(g, x, y, previous_player);
+    const int lost_border_empty_fields =
+        new_border_empty_fields(g, x, y, previous_player);
     g->players[previous_player_index].occupied_fields--;
-    g->players[previous_player_index].zero_cost_move_fields -= lost_border_empty_fields;
+    g->players[previous_player_index].border_empty_fields -= lost_border_empty_fields;
 
     return true;
 }
@@ -495,7 +510,7 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
         return total_fields - g->occupied_fields;
     }
 
-    return g->players[player_index].zero_cost_move_fields;
+    return g->players[player_index].border_empty_fields;
 }
 
 bool gamma_golden_possible(gamma_t *g, uint32_t player) {
@@ -553,7 +568,7 @@ static inline int uint_to_string(char *buffer, uint32_t n) {
  * @param[in] field        - pole.
  * @return Liczbę zapisanych bajtów.
  */
-uint8_t render_field(char *buffer, field_t *field) {
+static inline uint8_t render_field(char *buffer, field_t *field) {
     uint8_t written_chars = 0;
     if (field->empty) {
         buffer[written_chars++] = '.';
@@ -580,8 +595,9 @@ uint8_t render_field(char *buffer, field_t *field) {
  * @param[in,out] min_extra_space     - minimalna ilość wymaganego dodatkowo miejsca,
  * @return Wskaźnik na rozszerzony bufor lub NULL jeżeli operacja się nie powiedzie.
  */
-char *extend_buffer(char *buffer, uint64_t *size, uint64_t min_extra_space) {
-    *size += (uint64_t)(min_extra_space * 1.5) * sizeof(char);
+static inline char *extend_buffer(char *buffer, uint64_t *size,
+                                  uint64_t min_extra_space) {
+    *size += (uint64_t)(min_extra_space * 1.5 + 50) * sizeof(char);
     buffer = realloc(buffer, *size);
     if (buffer == NULL) {
         errno = ENOMEM;
