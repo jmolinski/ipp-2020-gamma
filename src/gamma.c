@@ -605,7 +605,7 @@ static inline uint8_t render_field(char *buffer, field_t *field, uint8_t min_wid
  * parametr.
  * @param[in,out] buffer              - bufor, który ma zostać rozszerzony,
  * @param[in,out] size                - pole,
- * @param[in,out] min_extra_space     - minimalna ilość wymaganego dodatkowo miejsca.
+ * @param[in] min_extra_space     - minimalna ilość wymaganego dodatkowo miejsca.
  * @return Wskaźnik na rozszerzony bufor lub NULL jeżeli operacja się nie powiedzie.
  */
 static inline char *extend_buffer(char *buffer, uint64_t *size,
