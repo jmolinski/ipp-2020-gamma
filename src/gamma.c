@@ -572,9 +572,9 @@ uint8_t get_uint_length(uint64_t value) {
  * Zapisuje tekstową reprezentację pola do bufora. Bufor musi mieć odpowiednio
  * dużo wolnego miejsca aby pomieścić wszystkie znaki.
  * Złożoność O(1).
- * @param[in,out] buffer   - bufor do którego zapisany ma zostać wynik,
- * @param[in] field        - pole,
- * @param[in] min_width    - minimalna szerokość wyrenderowanego pola.
+ * @param[in,out] buffer             - bufor do którego zapisany ma zostać wynik,
+ * @param[in] field                  - pole,
+ * @param[in] min_width              - minimalna szerokość wyrenderowanego pola.
  * @return Liczbę zapisanych bajtów.
  */
 static inline uint8_t render_field(char *buffer, field_t *field, uint8_t min_width) {
@@ -605,7 +605,7 @@ static inline uint8_t render_field(char *buffer, field_t *field, uint8_t min_wid
  * parametr.
  * @param[in,out] buffer              - bufor, który ma zostać rozszerzony,
  * @param[in,out] size                - pole,
- * @param[in] min_extra_space     - minimalna ilość wymaganego dodatkowo miejsca.
+ * @param[in] min_extra_space         - minimalna ilość wymaganego dodatkowo miejsca.
  * @return Wskaźnik na rozszerzony bufor lub NULL jeżeli operacja się nie powiedzie.
  */
 static inline char *extend_buffer(char *buffer, uint64_t *size,
@@ -622,12 +622,14 @@ static inline char *extend_buffer(char *buffer, uint64_t *size,
 
 /**
  * @brief Renderuje planszę do postaci łańcucha znaków.
- * @param[in] g                  - wskaźnik na strukturę przechowującą stan gry,
- * @param[in] min_width          - minimalna szerokość pojedynczego pola.
+ * @param[in] g                       - wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] min_width               - minimalna szerokość pojedynczego pola,
+ * @param[in] min_first_column_width  - minimalna szerokość pierwszego pola w rzędzie.
  * @return Wskaźnik na wyrenderowany ciąg znaków lub NULL jeżeli wystąpi problem
  * podczas alokacji pamięci.
  */
-static inline char *render_board(const gamma_t *g, uint8_t min_width) {
+static inline char *render_board(const gamma_t *g, uint8_t min_width,
+                                 uint8_t min_first_column_width) {
     uint64_t written_fields = 0, allocated_space = 0, pos = 0;
     const uint64_t total_fields = g->width * g->height;
     char *str = NULL;
@@ -642,7 +644,8 @@ static inline char *render_board(const gamma_t *g, uint8_t min_width) {
                 }
             }
 
-            pos += render_field(&str[pos], &g->board[y][x], min_width);
+            uint8_t f_width = x == 0 ? min_first_column_width : min_width;
+            pos += render_field(&str[pos], &g->board[y][x], f_width);
         }
         str[pos++] = '\n';
     }
@@ -664,5 +667,13 @@ char *gamma_board(gamma_t *g) {
     }
     uint8_t min_width = get_uint_length(max_player);
 
-    return render_board(g, min_width);
+    uint64_t max_player_first_column = 0;
+    for (uint64_t r = 0; r < g->height; r++) {
+        if (!g->board[r][0].empty && g->board[r][0].player > max_player_first_column) {
+            max_player_first_column = g->board[r][0].player;
+        }
+    }
+    uint8_t min_first_column_width = get_uint_length(max_player_first_column);
+
+    return render_board(g, min_width, min_first_column_width);
 }
