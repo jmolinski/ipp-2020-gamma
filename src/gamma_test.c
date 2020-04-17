@@ -17,24 +17,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Link do mojego repozytorium z testami (testy pochodzą od różnych autorów).
- * https://github.com/jmolinski/ipp-2020-testy/
-*/
-
 /**
  * Tak ma wyglądać plansza po wykonaniu wszystkich testów.
  */
-static const char board[] =
-    "1.........\n"
-    "..........\n"
-    "..........\n"
-    "......2...\n"
-    ".....2....\n"
-    "..........\n"
-    "..........\n"
-    "1.........\n"
-    "1221......\n"
-    "1.........\n";
+static const char board[] = "1.........\n"
+                            "..........\n"
+                            "..........\n"
+                            "......2...\n"
+                            ".....2....\n"
+                            "..........\n"
+                            "..........\n"
+                            "1.........\n"
+                            "1221......\n"
+                            "1.........\n";
 
 /** @brief Testuje silnik gry gamma.
  * Przeprowadza przykładowe testy silnika gry gamma.
