@@ -8,12 +8,8 @@
 
 #include "gamma.h"
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
-
-/**
- * Kod ASCII odpowiadający cyfrze zero.
- */
-#define ASCII_ZERO 48
 
 /**
  * Struktura przechowująca stan pola.
@@ -41,12 +37,11 @@ typedef struct player {
  * Struktura przechowująca stan gry.
  */
 struct gamma {
-    uint32_t max_areas;   /**< Maksymalna liczba rozłącznych obszarów zajmowanych
-                           * przez gracza. */
-    uint32_t players_num; /**< Liczba graczy. */
-    uint32_t height;      /**< Liczba rzędów planszy. */
-    uint32_t width;       /**< Liczba kolumn planszy. */
-
+    uint32_t max_areas;       /**< Maksymalna liczba rozłącznych obszarów zajmowanych
+                               * przez gracza. */
+    uint32_t players_num;     /**< Liczba graczy. */
+    uint32_t height;          /**< Liczba rzędów planszy. */
+    uint32_t width;           /**< Liczba kolumn planszy. */
     uint64_t occupied_fields; /**< Łączna liczba zajętych pól na planszy. */
 
     player_t *players; /**< Tablica danych graczy. */
@@ -211,10 +206,8 @@ static inline bool is_within_board(const gamma_t *g, int64_t x, int64_t y) {
  */
 static inline bool belongs_to_player(const gamma_t *g, int64_t x, int64_t y,
                                      uint32_t player) {
-    if (!is_within_board(g, x, y) || g->board[y][x].empty) {
-        return false;
-    }
-    return g->board[y][x].player == player;
+    return is_within_board(g, x, y) && !g->board[y][x].empty &&
+           g->board[y][x].player == player;
 }
 
 /** @brief Sprawdza czy zadane pole sąsiaduje z polem zadanego gracza.
@@ -314,15 +307,18 @@ static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x
     field_t *neighbors[4] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
                              get_field(g, x, y + 1), get_field(g, x, y - 1)};
     for (int i = 0; i < 4; i++) {
-        if (neighbors[i] == NULL || neighbors[i]->empty)
+        if (neighbors[i] == NULL || neighbors[i]->empty) {
             continue;
+        }
 
         uint32_t neighbor = neighbors[i]->player;
         g->players[neighbor % g->players_num].border_empty_fields--;
 
-        for (int j = i; j < 4; j++)
-            if (neighbors[j] != NULL && neighbors[j]->player == neighbor)
+        for (int j = i; j < 4; j++) {
+            if (neighbors[j] != NULL && neighbors[j]->player == neighbor) {
                 neighbors[j] = NULL;
+            }
+        }
     }
 }
 
@@ -338,18 +334,14 @@ static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x
  */
 static inline bool would_exceed_areas_limit(const gamma_t *g, uint32_t player,
                                             uint32_t x, uint32_t y) {
-    if (g->players[player % g->players_num].areas != g->max_areas) {
-        return false;
-    }
-    return !has_neighbor(g, x, y, player);
+    return g->players[player % g->players_num].areas == g->max_areas &&
+           !has_neighbor(g, x, y, player);
 }
 
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
-        y >= g->height) {
-        return false;
-    }
-    if (!g->board[y][x].empty || would_exceed_areas_limit(g, player, x, y)) {
+        y >= g->height || !g->board[y][x].empty ||
+        would_exceed_areas_limit(g, player, x, y)) {
         return false;
     }
 
@@ -439,17 +431,10 @@ static bool reindex_areas(gamma_t *g) {
  */
 static inline bool is_golden_move_impossible(const gamma_t *g, uint32_t player,
                                              uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
-        y >= g->height) {
-        return true;
-    }
-    if (g->board[y][x].empty || g->board[y][x].player == player ||
-        g->players[player % g->players_num].golden_move_done ||
-        would_exceed_areas_limit(g, player, x, y)) {
-        return true;
-    }
-
-    return false;
+    return (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
+            y >= g->height || g->board[y][x].empty || g->board[y][x].player == player ||
+            g->players[player % g->players_num].golden_move_done ||
+            would_exceed_areas_limit(g, player, x, y));
 }
 
 bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
@@ -488,8 +473,7 @@ uint64_t gamma_busy_fields(gamma_t *g, uint32_t player) {
         return 0;
     }
 
-    const uint32_t player_index = player % g->players_num;
-    return g->players[player_index].occupied_fields;
+    return g->players[player % g->players_num].occupied_fields;
 }
 
 uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
@@ -498,7 +482,6 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
     }
 
     const uint32_t player_index = player % g->players_num;
-
     if (g->players[player_index].areas < g->max_areas) {
         uint64_t total_fields = g->width * g->height;
         return total_fields - g->occupied_fields;
@@ -528,32 +511,6 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
 }
 
 /**
- * @brief Zmienia liczbę w napis.
- * Zapisuje cyfry zadanej liczby nieujemnej jako znaki w buforze.
- * Bufor musi być odpowiedio długi aby pomieścić wszystkie cyfry.
- * Złożoność O(1).
- * @param[in,out] buffer    - bufor do którego zapisany ma zostać wynik.
- * @param[in] n             - liczba do skonwertowania.
- * @return Liczbę zapisanych bajtów.
- */
-static inline int uint_to_string(char *buffer, uint32_t n) {
-    char digits[11]; // max_len = round(log10(2^32)) = 10
-    uint8_t written = 0;
-
-    do {
-        // zapisuje cyfry w odwróconej kolejności
-        digits[written++] = n % 10;
-        n /= 10;
-    } while (n != 0);
-
-    for (int p = written - 1; p >= 0; p--) {
-        *buffer++ = ASCII_ZERO + digits[p];
-    }
-
-    return written;
-}
-
-/**
  * @brief Zwraca liczbę cyfr zadanej liczby nieujemnej.
  * @param[in] value   - liczba nieujemna.
  * @return Liczbę cyfr liczby @p value.
@@ -565,59 +522,6 @@ uint8_t get_uint_length(uint64_t value) {
         value /= 10;
     }
     return l;
-}
-
-/**
- * @brief Zapisuje tekstową reprezentację pola do bufora.
- * Zapisuje tekstową reprezentację pola do bufora. Bufor musi mieć odpowiednio
- * dużo wolnego miejsca aby pomieścić wszystkie znaki.
- * Złożoność O(1).
- * @param[in,out] buffer             - bufor do którego zapisany ma zostać wynik,
- * @param[in] field                  - pole,
- * @param[in] min_width              - minimalna szerokość wyrenderowanego pola.
- * @return Liczbę zapisanych bajtów.
- */
-static inline uint8_t render_field(char *buffer, field_t *field, uint8_t min_width) {
-    uint8_t written_chars = 0;
-
-    uint8_t field_width = get_uint_length(field->empty ? 1 : field->player);
-    // Jeżeli min_width == 1, to na planszy nie ma graczy o numerach > 9, zatem
-    // wypisujemy je bez paddingu. Jeżeli min_width > 1, to dodajemy jeden dodatkowy
-    // znak paddingu, aby "najdłuższy" gracz nie sklejał się z poprzednim.
-    uint8_t padding_needed = min_width == 1 ? 0 : min_width - field_width + 1;
-
-    for (uint8_t i = 0; i < padding_needed; i++) {
-        buffer[written_chars++] = ' ';
-    }
-
-    if (field->empty) {
-        buffer[written_chars++] = '.';
-    } else {
-        written_chars += uint_to_string(&buffer[written_chars], field->player);
-    }
-
-    return written_chars;
-}
-
-/**
- * @brief Rozszerza zadany zadany bufor znakowy.
- * Rozszerza zadany bufor znakowy o rozmiar nie mniejszy niz minimalny zadany jako
- * parametr.
- * @param[in,out] buffer              - bufor, który ma zostać rozszerzony,
- * @param[in,out] size                - pole,
- * @param[in] min_extra_space         - minimalna ilość wymaganego dodatkowo miejsca.
- * @return Wskaźnik na rozszerzony bufor lub NULL jeżeli operacja się nie powiedzie.
- */
-static inline char *extend_buffer(char *buffer, uint64_t *size,
-                                  uint64_t min_extra_space) {
-    // 50 nie ma szczególnego znaczenia - alokowane jest trochę więcej niż potrzebne.
-    *size += (uint64_t)(min_extra_space + 50) * sizeof(char);
-    buffer = realloc(buffer, *size);
-    if (buffer == NULL) {
-        errno = ENOMEM;
-        return NULL;
-    }
-    return buffer;
 }
 
 /**
@@ -638,14 +542,21 @@ static inline char *render_board(const gamma_t *g, uint8_t min_width,
         for (uint32_t x = 0; x < g->width; x++) {
             if ((allocated_space - pos) < 50) {
                 uint64_t left_fields = total_fields - written_fields;
-                str = extend_buffer(str, &allocated_space, left_fields * min_width + y);
-                if (str == NULL) {
-                    return str;
+                // 50 nie ma szczególnego znaczenia - alokowane jest trochę więcej niż
+                // potrzebne.
+                allocated_space += (left_fields * min_width + y + 50) * sizeof(char);
+                if ((str = realloc(str, allocated_space)) == NULL) {
+                    errno = ENOMEM;
+                    return NULL;
                 }
             }
 
-            uint8_t f_width = x == 0 ? min_first_column_width : min_width;
-            pos += render_field(&str[pos], &g->board[y][x], f_width);
+            uint8_t field_width = x == 0 ? min_first_column_width : min_width;
+            if (g->board[y][x].empty) {
+                pos += sprintf(&str[pos], "%*c", field_width, '.');
+            } else {
+                pos += sprintf(&str[pos], "%*u", field_width, g->board[y][x].player);
+            }
         }
         str[pos++] = '\n';
     }
@@ -659,15 +570,18 @@ char *gamma_board(gamma_t *g) {
         return NULL;
     }
 
-    uint64_t max_player = 0; // Najmniejszy numer gracza to 1.
+    uint64_t max_player = 1; // Najmniejszy numer gracza to 1.
     for (uint64_t p = 1; p < g->players_num; p++) {
         if (g->players[p % g->players_num].occupied_fields > 0 && p > max_player) {
             max_player = p;
         }
     }
     uint8_t min_width = get_uint_length(max_player);
+    // Jeżeli min_width > 1, to dodajemy jeden dodatkowy znak paddingu, aby "najdłuższy"
+    // gracz nie sklejał się z poprzednim.
+    min_width = min_width == 1 ? 1 : min_width + 1;
 
-    uint64_t max_player_first_column = 0;
+    uint64_t max_player_first_column = 1;
     for (uint64_t r = 0; r < g->height; r++) {
         if (!g->board[r][0].empty && g->board[r][0].player > max_player_first_column) {
             max_player_first_column = g->board[r][0].player;
