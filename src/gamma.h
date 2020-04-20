@@ -102,7 +102,7 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player);
 
 /** @brief Daje napis opisujący stan planszy.
  * Alokuje w pamięci bufor, w którym umieszcza napis zawierający tekstowy
- * opis aktualnego stanu planszy. Przykład znajduje się w pliku gamma_test.c.
+ * opis aktualnego stanu planszy.
  * Funkcja wywołująca musi zwolnić ten bufor.
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry.
  * @return Wskaźnik na zaalokowany bufor zawierający napis opisujący stan
