@@ -36,6 +36,7 @@ static const char board[] = "1.........\n"
  * @return Zero, gdy wszystkie testy przebiegły poprawnie,
  * a w przeciwnym przypadku kod zakończenia programu jest kodem błędu.
  */
+ /*
 int main() {
     gamma_t *g;
 
@@ -95,3 +96,4 @@ int main() {
     gamma_delete(g);
     return 0;
 }
+  */
