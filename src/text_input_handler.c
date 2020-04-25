@@ -14,14 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 /** @brief Pomija znaki z stdin aż do znaku końca linii (włącznie).
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_CHARACTER, jeżeli przed znakiem nowej linii napotkano znaki inne niż
  * znaki białe.
  */
-error_t skip_until_next_line() {
+static inline error_t skip_until_next_line() {
     int ch;
     error_t errcode = NO_ERROR;
 
@@ -40,7 +39,7 @@ error_t skip_until_next_line() {
 
 /** @brief Pomija białe znaki z stdin aż do następnego niebiałego znaku lub EOF.
  */
-void skip_white_characters() {
+static inline void skip_white_characters() {
     int ch;
     do {
         ch = getchar();
@@ -61,7 +60,7 @@ void skip_white_characters() {
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
-error_t read_uint32_digits(char *buffer) {
+static inline error_t read_uint32_digits(char *buffer) {
     int ch;
     int i = 0;
     do {
@@ -96,7 +95,7 @@ error_t read_uint32_digits(char *buffer) {
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
 // TODO -0, leading zeros
-error_t read_uint32(uint32_t *ptr) {
+static inline error_t read_uint32(uint32_t *ptr) {
     char buffer[13]; // maksymalna długość uint32_t to 10
     skip_white_characters();
     int error = read_uint32_digits(buffer);
@@ -122,7 +121,7 @@ error_t read_uint32(uint32_t *ptr) {
  * @p LINE_IGNORED, jeżeli linijka zaczyna się od znaku #, lub @p INVALID_VALUE,
  * jeżeli wczytany znak nie jest poprawnym identyfikatorem komendy.
  */
-error_t read_command_char(char *command, const char *allowed_commands) {
+static inline error_t read_command_char(char *command, const char *allowed_commands) {
     int read_command = getchar();
     if (read_command == EOF) {
         return ENCOUNTERED_EOF;
@@ -146,7 +145,7 @@ error_t read_command_char(char *command, const char *allowed_commands) {
  * @param[in] command   – znak identyfikujący komendę.
  * @return liczba parametrów przyjmowanych przez komendę.
  */
-int get_command_arguments_count(char command) {
+static inline int get_command_arguments_count(char command) {
     if (command == 'B' || command == 'I') {
         return 4;
     } else if (command == 'g' || command == 'm') {
@@ -157,7 +156,8 @@ int get_command_arguments_count(char command) {
     return 0;
 }
 
-error_t read_next_command(char *command, uint32_t args[4], const char* allowed_commands) {
+error_t read_next_command(char *command, uint32_t args[4],
+                          const char *allowed_commands) {
     int error;
 
     if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {

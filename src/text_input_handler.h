@@ -12,6 +12,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/**
+ * Enum opisujący różne typy błędów, które mogą wystąpić w trakcie wykonania
+ */
 typedef enum errors {
     ENCOUNTERED_EOF,
     INVALID_VALUE,
