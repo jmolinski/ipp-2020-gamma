@@ -12,24 +12,44 @@
 #include "interactive_mode.h"
 #include "text_input_handler.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+
+int create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
+    int error;
+    uint32_t args[4];
+    do {
+        (*line)++;
+        error = read_next_command(mode, args, "BI");
+        if (error == NO_ERROR) {
+            if (!gamma_game_new_arguments_valid(args[0], args[1], args[2], args[3])) {
+                error = INVALID_VALUE;
+            }
+        }
+        if (error != NO_ERROR) {
+            fprintf(stderr, "ERROR %lu\n", *line);
+        }
+    } while (error != NO_ERROR);
+
+    (*game) = gamma_new(args[0], args[1], args[2], args[3]);
+    if (game == NULL) {
+        return MEMORY_ERROR;
+    }
+    return NO_ERROR;
+}
 
 int main() {
     char mode;
-    uint32_t width, height, players, areas;
-    int error;
+    gamma_t *game;
+    uint64_t line = 0;
 
-    do {
-        error = read_game_parameters(&mode, &width, &height, &players, &areas);
-    } while (error != NO_ERROR);
-
-    gamma_t *game = gamma_new(width, height, players, areas);
-    if (game == NULL) {
+    int error = create_game_struct(&game, &mode, &line);
+    if (error == MEMORY_ERROR) {
         return 1;
     }
 
     if (mode == 'B') {
-        run_batch_mode(game);
+        run_batch_mode(game, &line);
     } else {
         run_interactive_mode(game);
     }
