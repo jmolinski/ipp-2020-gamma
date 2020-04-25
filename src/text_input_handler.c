@@ -110,10 +110,11 @@ int read_uint32(uint32_t *ptr) {
     }
 
     errno = 0;
-    *ptr = strtoul(buffer, NULL, 10);
-    if (errno == ERANGE) {
+    unsigned long value = strtoul(buffer, NULL, 10);
+    if (errno == ERANGE || value > UINT32_MAX) {
         return INVALID_VALUE;
     }
+    *ptr = (uint32_t)value;
     return NO_ERROR;
 }
 
