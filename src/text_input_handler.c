@@ -12,11 +12,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 const int NO_ERROR = 0;
 const int ENCOUNTERED_EOF = 1;
 const int INVALID_VALUE = 2;
-const int UNEXPECTED_NEWLINE = 3;
+const int LINE_IGNORED = 3;
 
 /** @brief Pomija znaki z stdin aż do znaku końca linii (włącznie).
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
@@ -98,6 +99,7 @@ int read_uint32_digits(char *buffer) {
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
+// TODO -0, leading zeros
 int read_uint32(uint32_t *ptr) {
     char buffer[13]; // maksymalna długość uint32_t to 10
     skip_white_characters();
@@ -114,34 +116,71 @@ int read_uint32(uint32_t *ptr) {
     return NO_ERROR;
 }
 
-int read_game_parameters(char *mode, uint32_t *width, uint32_t *height,
-                         uint32_t *players, uint32_t *areas) {
-    int read_mode = getchar();
-    if (read_mode == EOF) {
+/** @brief Wczytuje znak identyfikujący komendę z stdin.
+ * @param[out] command           – wskaźnik na komórkę, gdzie ma zostać zapisany
+ *                                 wczytany znak,
+ * @param[in] allowed_commands   – ciąg dozwolonych identyfikatorów komend.
+ * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
+ * jeżeli na stdin nie ma żadnego znaku, @p LINE_IGNORED, jeżeli linijka jest pusta,
+ * @p LINE_IGNORED, jeżeli linijka zaczyna się od znaku #, lub @p INVALID_VALUE,
+ * jeżeli wczytany znak nie jest poprawnym identyfikatorem komendy.
+ */
+int read_command_char(char *command, const char *allowed_commands) {
+    int read_command = getchar();
+    if (read_command == EOF) {
         return ENCOUNTERED_EOF;
     }
-    *mode = (char)read_mode;
+    if (read_command == '\n') {
+        return LINE_IGNORED;
+    }
+    if (read_command == '#') {
+        skip_until_next_line();
+        return LINE_IGNORED;
+    }
+    if (strchr(allowed_commands, read_command) == NULL) {
+        skip_until_next_line();
+        return INVALID_VALUE;
+    }
+    *command = (char)read_command;
+    return NO_ERROR;
+}
 
-    int error = NO_ERROR;
-    if ((error = read_uint32(width)) != NO_ERROR ||
-        (error = read_uint32(height)) != NO_ERROR ||
-        (error = read_uint32(players)) != NO_ERROR ||
-        (error = read_uint32(areas)) != NO_ERROR) {
-        if (error == ENCOUNTERED_EOF) {
-            return ENCOUNTERED_EOF;
-        }
-        if (error == UNEXPECTED_NEWLINE) {
-            return INVALID_VALUE;
+/** @brief Zwraca liczbę parametrów przyjmowanych przez komendę.
+ * @param[in] command   – znak identyfikujący komendę.
+ * @return liczba parametrów przyjmowanych przez komendę.
+ */
+int get_command_arguments_count(char command) {
+    if (command == 'B' || command == 'I') {
+        return 4;
+    } else if (command == 'g' || command == 'm') {
+        return 3;
+    } else if (command == 'b' || command == 'f' || command == 'q') {
+        return 1;
+    }
+    return 0;
+}
+
+int read_next_command(char *command, uint32_t args[3], const char* allowed_commands) {
+    int error;
+
+    if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {
+        return error;
+    }
+
+    int arguments_count = get_command_arguments_count(*command);
+    for (int i = 0; i < arguments_count; i++) {
+        if ((error = read_uint32(&args[i])) != NO_ERROR) {
+            if (error == ENCOUNTERED_EOF) {
+                return ENCOUNTERED_EOF;
+            } else {
+                skip_until_next_line();
+                return error;
+            }
         }
     }
 
     if ((error = skip_until_next_line()) != NO_ERROR) {
         return error;
-    }
-
-    if ((*mode != 'B' && *mode != 'I') || *width == 0 || *height == 0 ||
-        *players == 0 || *areas == 0) {
-        return INVALID_VALUE;
     }
 
     return NO_ERROR;
