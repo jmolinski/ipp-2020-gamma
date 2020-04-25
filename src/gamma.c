@@ -138,7 +138,7 @@ static field_t **allocate_board(uint32_t width, uint32_t height) {
 }
 
 gamma_t *gamma_new(uint32_t width, uint32_t height, uint32_t players, uint32_t areas) {
-    if (width == 0 || height == 0 || players == 0 || areas == 0) {
+    if (!gamma_game_new_arguments_valid(width, height, players, areas)) {
         return NULL;
     }
 
@@ -590,4 +590,13 @@ char *gamma_board(gamma_t *g) {
     uint8_t min_first_column_width = get_uint_length(max_player_first_column);
 
     return render_board(g, min_width, min_first_column_width);
+}
+
+bool gamma_is_valid_player(const gamma_t *g, uint32_t player) {
+    return !(g == NULL || player == 0 || player > g->players_num);
+}
+
+bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t players,
+                                    uint32_t areas) {
+    return !(width == 0 || height == 0 || players == 0 || areas == 0);
 }

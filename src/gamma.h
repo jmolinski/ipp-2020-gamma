@@ -110,4 +110,24 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player);
  */
 char *gamma_board(gamma_t *g);
 
+/** @brief Weryfikuje czy zadany identyfikator gracza jest prawidłowy.
+ * @param[in] g        – wskaźnik na strukturę przechowującą stan gry,
+ * @param[in] player   – identyfikator gracza.
+ * @return Wartość logiczną @p true, jeżeli numer gracza jest prawidłowy,
+ * @p false w przeciwnym przypadku.
+ */
+bool gamma_is_valid_player(const gamma_t *g, uint32_t player);
+
+/** @brief Weryfikuje parametry funkcji gamma_new.
+ * @param[in] width   – szerokość planszy, liczba dodatnia,
+ * @param[in] height  – wysokość planszy, liczba dodatnia,
+ * @param[in] players – liczba graczy, liczba dodatnia,
+ * @param[in] areas   – maksymalna liczba obszarów,
+ *                      jakie może zająć jeden gracz, liczba dodatnia.
+ * @return Wartość logiczna @p true, jeżeli wartości parametrów są prawidłowe,
+ * @p false w przeciwnym przypadku.
+ */
+bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t players,
+                                    uint32_t areas);
+
 #endif /* GAMMA_H */
