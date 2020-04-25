@@ -51,6 +51,13 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
     return NO_ERROR;
 }
 
+/** @brief Koordynuje przebieg gry gamma.
+ * Wczytuje dane gry, tworzy nową grę i uruchamia rozgrywkę w trybie wsadowym
+ * lub w trybie interaktywnym. Zwalnia pamięć po zakończeniu rozgrywki.
+ * @return Zero, gdy wszystko przebiegło poprawnie,
+ * a w przeciwnym przypadku kod zakończenia programu jest kodem błędu.
+ * Kod 1 oznacza błąd alokacji pamięci.
+ */
 int main() {
     // TODO przetestowanie jak dziala kiedy malloc sie gdzies wywali
     char mode;
