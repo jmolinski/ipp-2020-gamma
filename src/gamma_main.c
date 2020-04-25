@@ -6,24 +6,22 @@
  * @date 24.04.2020
  */
 
+#include "batch_mode.h"
+#include "errno.h"
 #include "gamma.h"
-#include <stdbool.h>
+#include "interactive_mode.h"
+#include "text_input_handler.h"
 #include <stdint.h>
 #include <stdlib.h>
-#include "text_input_handler.h"
-#include "errno.h"
-#include "interactive_mode.h"
-#include "batch_mode.h"
 
 int main() {
     char mode;
     uint32_t width, height, players, areas;
-    bool parameters_correct = false;
+    int error;
 
     do {
-        parameters_correct =
-            read_game_parameters(&mode, &width, &height, &players, &areas);
-    } while (!parameters_correct);
+        error = read_game_parameters(&mode, &width, &height, &players, &areas);
+    } while (error != NO_ERROR);
 
     gamma_t *game = gamma_new(width, height, players, areas);
     if (game == NULL) {
@@ -38,7 +36,7 @@ int main() {
 
     gamma_delete(game);
 
-    if(errno == ENOMEM) {
+    if (errno == ENOMEM) {
         return 1;
     }
 

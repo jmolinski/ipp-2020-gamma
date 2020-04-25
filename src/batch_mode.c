@@ -9,4 +9,8 @@
 #include "gamma.h"
 
 void run_batch_mode(gamma_t *g) {
+    uint32_t line = 1;
+    char command;
+    uint32_t arg1, arg2, arg3;
+
 }
