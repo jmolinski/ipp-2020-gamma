@@ -16,6 +16,7 @@ extern const int ENCOUNTERED_EOF;
 extern const int INVALID_VALUE;
 extern const int NO_ERROR;
 extern const int LINE_IGNORED;
+extern const int MEMORY_ERROR;
 
 /** @brief Wczytuje parametry następnej komendy.
  * @param[out] command         – wskaźnik na znak oznaczający typ komendy,

@@ -18,6 +18,7 @@ const int NO_ERROR = 0;
 const int ENCOUNTERED_EOF = 1;
 const int INVALID_VALUE = 2;
 const int LINE_IGNORED = 3;
+const int MEMORY_ERROR = 4;
 
 /** @brief Pomija znaki z stdin aż do znaku końca linii (włącznie).
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
