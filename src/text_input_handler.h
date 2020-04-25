@@ -12,11 +12,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-extern const int ENCOUNTERED_EOF;
-extern const int INVALID_VALUE;
-extern const int NO_ERROR;
-extern const int LINE_IGNORED;
-extern const int MEMORY_ERROR;
+typedef enum errors {
+    ENCOUNTERED_EOF,
+    INVALID_VALUE,
+    NO_ERROR,
+    LINE_IGNORED,
+    MEMORY_ERROR
+} error_t;
 
 /** @brief Wczytuje parametry następnej komendy.
  * @param[out] command         – wskaźnik na znak oznaczający typ komendy,
@@ -28,6 +30,6 @@ extern const int MEMORY_ERROR;
  * jeżeli wiersz jest pusty lub zaczyna się znakiem #.
  *
  */
-int read_next_command(char *command, uint32_t args[4], const char *allowed_commands);
+error_t read_next_command(char *command, uint32_t args[4], const char *allowed_commands);
 
 #endif /* TEXT_INPUT_HANDLER_H */

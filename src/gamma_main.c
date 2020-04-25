@@ -15,8 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
-    int error;
+error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
+    error_t error;
     uint32_t args[4];
     do {
         (*line)++;
