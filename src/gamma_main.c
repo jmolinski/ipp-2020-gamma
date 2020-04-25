@@ -15,7 +15,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
+/** @brief Wczytuje parametry gry z stdin.
+ * Wczytuje wiersze z stdin tak długo aż nie uda się poprawnie utworzyć nowej gry.
+ * Aktualizuje numer aktualnego wiersza.
+ * @param[out] game        – wskaźnik na zmienną do której zapisany zostanie wskaźnik
+ *                           na strukturę przechowującą dane gry.
+ * @param[out] mode        – wskaźnik na znak oznaczający tryb gry (B lub I),
+ * @param[in,out] line     – wskaźnik na aktualny numer wiersza wejścia.
+ * @return Kod @p NO_ERROR jeżeli wczytane parametry są poprawne,
+ * @p ENCOUNTERED_EOF, jeżeli dane na wejściu się skończyły (EOF), @p MEMORY_ERROR,
+ * jeżeli wystąpił błąd alokacji pamięci.
+ */
+static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
     error_t error;
     uint32_t args[4];
     do {
@@ -46,7 +57,7 @@ int main() {
     gamma_t *game;
     uint64_t line = 0;
 
-    int error = create_game_struct(&game, &mode, &line);
+    error_t error = create_game_struct(&game, &mode, &line);
     if (error == MEMORY_ERROR) {
         return 1;
     }

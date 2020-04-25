@@ -31,7 +31,6 @@ typedef enum errors {
  * @p ENCOUNTERED_EOF, jeżeli dane na wejściu się skończyły (EOF), @p INVALID_VALUE,
  * jeżeli wartości parametrów lub polecenie są niepoprawne, @p LINE_IGNORED,
  * jeżeli wiersz jest pusty lub zaczyna się znakiem #.
- *
  */
 error_t read_next_command(char *command, uint32_t args[4], const char *allowed_commands);
 
