@@ -27,7 +27,9 @@ int create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
             }
         }
         if (error != NO_ERROR) {
-            fprintf(stderr, "ERROR %lu\n", *line);
+            if (error != LINE_IGNORED) {
+                fprintf(stderr, "ERROR %lu\n", *line);
+            }
         }
     } while (error != NO_ERROR);
 
@@ -39,6 +41,7 @@ int create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
 }
 
 int main() {
+    // TODO przetestowanie jak dziala kiedy malloc sie gdzies wywali
     char mode;
     gamma_t *game;
     uint64_t line = 0;
