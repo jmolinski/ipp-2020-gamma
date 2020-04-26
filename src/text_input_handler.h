@@ -11,17 +11,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
-/**
- * Enum opisujący różne typy błędów, które mogą wystąpić w trakcie wykonania
- */
-typedef enum errors {
-    ENCOUNTERED_EOF,
-    INVALID_VALUE,
-    NO_ERROR,
-    LINE_IGNORED,
-    MEMORY_ERROR
-} error_t;
+#include "errors.h"
 
 /** @brief Wczytuje parametry następnej komendy.
  * @param[out] command         – wskaźnik na znak oznaczający typ komendy,

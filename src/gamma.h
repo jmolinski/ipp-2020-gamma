@@ -130,6 +130,17 @@ bool gamma_is_valid_player(const gamma_t *g, uint32_t player);
 bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t players,
                                     uint32_t areas);
 
+// TODO co z tymi metodami weryfikujacymi?
+///** @brief Weryfikuje parametry funkcji gamma_move.
+// * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
+// * @param[in] player  – numer gracza,
+// * @param[in] x       – numer kolumny,
+// * @param[in] y       – numer wiersza.
+// * @return Wartość logiczna @p true, jeżeli wartości parametrów są prawidłowe,
+// * @p false w przeciwnym przypadku.
+// */
+// bool gamma_game_move_arguments_valid(gamma_t *g, uint32_t player, uint32_t x,
+// uint32_t y);
 //
 ///** @brief Weryfikuje parametry funkcji gamma_move.
 // * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
@@ -139,16 +150,7 @@ bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t pl
 // * @return Wartość logiczna @p true, jeżeli wartości parametrów są prawidłowe,
 // * @p false w przeciwnym przypadku.
 // */
-//bool gamma_game_move_arguments_valid(gamma_t *g, uint32_t player, uint32_t x, uint32_t y);
-//
-///** @brief Weryfikuje parametry funkcji gamma_move.
-// * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
-// * @param[in] player  – numer gracza,
-// * @param[in] x       – numer kolumny,
-// * @param[in] y       – numer wiersza.
-// * @return Wartość logiczna @p true, jeżeli wartości parametrów są prawidłowe,
-// * @p false w przeciwnym przypadku.
-// */
-//bool gamma_game_move_arguments_valid(gamma_t *g, uint32_t player, uint32_t x, uint32_t y);
+// bool gamma_game_move_arguments_valid(gamma_t *g, uint32_t player, uint32_t x,
+// uint32_t y);
 
 #endif /* GAMMA_H */
