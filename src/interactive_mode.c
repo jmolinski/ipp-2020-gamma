@@ -8,29 +8,43 @@
 
 #include "errors.h"
 #include "gamma.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <termios.h> //termios, TCSANOW, ECHO, ICANON
-#include <unistd.h>  //STDIN_FILENO
+#include <termios.h>
+#include <unistd.h>
 
 /** Kod ASCII 4, odpowiednik EOF przy wczytywaniu bez buforowania */
 #define END_OF_TRANSMISSION 4
 
-static inline void move_cursor(uint32_t column, uint32_t row) {
-    printf("\x1b[%u;%uH", row, column);
-}
+/** ANSI escape code - wyczyszczenie bufora terminala. */
+#define CLEAR_SCREEN "\x1b[2J"
+/** ANSI escape code - przesunięcie kursora na zadaną pozycję. */
+#define MOVE_CURSOR "\x1b[%u;%uH"
+/** ANSI escape code - ukrycie kursora. */
+#define HIDE_CURSOR "\x1b[?25l"
+/** ANSI escape code - przywrócenie widoczności kursora. */
+#define SHOW_CURSOR "\x1b[?25h"
+/** ANSI escape code - przełączenie na alternatywny bufor terminala. */
+#define SET_ALTERNATIVE_BUFFER "\x1b[?1049h"
+/** ANSI escape code - przełączenie na glówny bufor terminala. */
+#define SET_NORMAL_BUFFER "\x1b[?1049l"
+/** ANSI escape code - zmiana kolorów na   */
+#define INVERT_COLORS "\x1b[31;105m"
+/** ANSI escape code - przywrócenie domyślnych kolorów */
+#define RESET_COLORS "\x1b[m"
 
 static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
-                           uint32_t player) {
-    printf("\x1b[2J"); // clear screen & nuke scrollback
-    move_cursor(0, 0);
+                           uint32_t player, char *error_message) {
+    printf(CLEAR_SCREEN);
+    printf(MOVE_CURSOR, 0, 0);
     const uint32_t board_width = gamma_board_width(g);
+    unsigned first_column_width, other_columnds_width;
+    gamma_rendered_fields_width(g, &first_column_width, &other_columnds_width);
 
     for (int64_t y = gamma_board_height(g) - 1; y >= 0; y--) {
         for (uint32_t x = 0; x < board_width; x++) {
-            // unsigned field_width = x == 0 ? min_first_column_width : min_width;
-            // TODO szerokosc pola
-            unsigned field_width = 1;
+            unsigned field_width = x == 0 ? first_column_width : other_columnds_width;
             int written_chars;
             char buffer[15];
             gamma_render_field(g, buffer, x, y, field_width, &written_chars);
@@ -38,7 +52,7 @@ static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
                 return MEMORY_ERROR;
             }
             if (y == field_y && x == field_x) {
-                printf("\x1b[31;105m%s\x1b[m", buffer); // TODO opisac
+                printf(INVERT_COLORS "%s" RESET_COLORS, buffer);
             } else {
                 printf("%s", buffer);
             }
@@ -48,40 +62,30 @@ static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
 
     printf("Player %u\nFree fields %lu\nOccupied fields %lu\n", player,
            gamma_free_fields(g, player), gamma_busy_fields(g, player));
+    if (error_message[0] != '\0') {
+        printf("%s\n", error_message);
+    }
+
     return NO_ERROR;
 }
 
-static void cleanup() {
-    printf("\x1b[2J");     // clean up the alternate buffer
-    printf("\x1b[?1049l"); // switch back to the normal buffer
-    printf("\x1b[?25h");   // show the cursor again
+static void adjust_terminal_settings(struct termios *old, struct termios *new) {
+    tcgetattr(STDIN_FILENO, old);
+    *new = *old;
+
+    // ICANON - tryb obsługi wejścia (buforowanie, '\n', EOF).
+    // ECHO - wypisywanie naciśniętego klawisza na stdout.
+    new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, new);
+
+    // TODO pytanie: co z cleanupami przy erorrach typu SIGTERM?
+
+    printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
 }
 
 static void restore_terminal_settings(struct termios *old) {
     tcsetattr(STDIN_FILENO, TCSANOW, old);
-    cleanup();
-}
-
-static void adjust_terminal_settings(struct termios *old, struct termios *new) {
-    /* tcgetattr gets the parameters of the current terminal
-    STDIN_FILENO will tell tcgetattr that it should write the settings
-    of stdin to oldt */
-    tcgetattr(STDIN_FILENO, old);
-    *new = *old;
-
-    /*ICANON normally takes care that one line at a time will be processed
-    that means it will return if it sees a "\n" or an EOF or an EOL*/
-    new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
-
-    /*Those new settings will be set to STDIN
-    TCSANOW tells tcsetattr to change attributes immediately. */
-    tcsetattr(STDIN_FILENO, TCSANOW, new);
-
-    // TODO pytanie: co z cleanupami przy erorrach?
-
-    printf("\x1b[?1049h"); // set alternative buffer
-    printf("\x1b[2J");     // clear screen & nuke scrollback
-    printf("\x1b[?25l");   // hide cursor
+    printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
 }
 
 void respond_to_arrow_key(gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
@@ -108,18 +112,25 @@ void respond_to_arrow_key(gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
 }
 
 void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_y,
-                    uint32_t player, bool *advance_player) {
+                    uint32_t player, bool *advance_player, char *error_message) {
     *advance_player = false;
-    // TODO advance only if successful?
-    // TODO printowac komunikat ze sie nie udalo?
+    error_message[0] = '\0';
     if (key == ' ') {
-        gamma_move(game, player, *field_x, *field_y);
-        *advance_player = true;
+        bool success = gamma_move(game, player, *field_x, *field_y);
+        if (success) {
+            *advance_player = true;
+        } else {
+            sprintf(error_message, "Can't make this move.");
+        }
     } else if (key == 'c' || key == 'C') {
         *advance_player = true;
     } else if (key == 'g' || key == 'G') {
-        gamma_golden_move(game, player, *field_x, *field_y);
-        *advance_player = true;
+        bool success = gamma_golden_move(game, player, *field_x, *field_y);
+        if (success) {
+            *advance_player = true;
+        } else {
+            sprintf(error_message, "Can't make this golden move.");
+        }
     } else if (key == 27) { // Jeden z klawiszy strzałek.
         ungetc(key, stdin);
         respond_to_arrow_key(game, field_x, field_y);
@@ -129,9 +140,27 @@ void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_
 static inline void print_game_summary(gamma_t *g) {
     char *rendered_board = gamma_board(g);
     if (rendered_board != NULL) {
-        printf("%s", rendered_board);
+        printf("\n%s\n", rendered_board);
     }
-    // TODO summary graczy
+
+    uint32_t players_count = gamma_players_number(g);
+    uint32_t winner = 0;
+    uint64_t winner_points = 0;
+
+    for (uint64_t p = 1; p <= players_count; p++) {
+        uint64_t player_points = gamma_busy_fields(g, p);
+        if (player_points > winner_points) {
+            winner = p;
+            winner_points = gamma_busy_fields(g, p);
+        }
+        printf("Player %" PRIu64 " has %" PRIu64 " points.\n", p, player_points);
+    }
+    /* TODO winner - co jeśli więcej niż 1 gracz wygrywa?
+    if (winner) {
+        printf("Winner: player %" PRIu32 " with %" PRIu64 " points.\n", winner,
+               winner_points);
+    }
+     */
 }
 
 static inline bool advance_player_number(uint32_t *current_player,
@@ -141,13 +170,13 @@ static inline bool advance_player_number(uint32_t *current_player,
 }
 
 static error_t run_io_loop(gamma_t *g) {
-    uint32_t field_x = 0;
-    uint32_t field_y = 0;
-    uint32_t current_player = 1;
+    uint32_t field_x = 0, field_y = 0, current_player = 1;
     const uint32_t players = gamma_players_number(g);
+    char error_message[100];
+    error_message[0] = '\0';
 
     while (true) {
-        error_t error = print_board(g, field_x, field_y, current_player);
+        error_t error = print_board(g, field_x, field_y, current_player, error_message);
         if (error == MEMORY_ERROR) {
             return MEMORY_ERROR;
         }
@@ -158,7 +187,8 @@ static error_t run_io_loop(gamma_t *g) {
         }
 
         bool advance_player;
-        respond_to_key((char)c, g, &field_x, &field_y, current_player, &advance_player);
+        respond_to_key((char)c, g, &field_x, &field_y, current_player, &advance_player,
+                       error_message);
         if (advance_player) {
             bool game_ended = advance_player_number(&current_player, players);
             if (game_ended) {
