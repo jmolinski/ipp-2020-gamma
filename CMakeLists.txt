@@ -30,7 +30,7 @@ set(SOURCE_FILES
         src/text_input_handler.h
         src/batch_mode.c
         src/batch_mode.h
-        )
+        src/errors.h)
 
 # Wskazujemy plik wykonywalny.
 add_executable(gamma ${SOURCE_FILES})

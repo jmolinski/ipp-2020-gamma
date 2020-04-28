@@ -153,4 +153,11 @@ bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t pl
 // bool gamma_game_move_arguments_valid(gamma_t *g, uint32_t player, uint32_t x,
 // uint32_t y);
 
+/** @brief Zwraca liczbę graczy.
+ * @param[in] g        – wskaźnik na strukturę przechowującą stan gry.
+ * @return liczba graczy.
+ */
+uint32_t gamma_players_number(gamma_t* g);
+
+
 #endif /* GAMMA_H */
