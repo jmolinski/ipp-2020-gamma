@@ -539,27 +539,45 @@ error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
     return NO_ERROR;
 }
 
-/**
- * @brief Renderuje planszę do postaci łańcucha znaków.
- * @param[in] g                       - wskaźnik na strukturę przechowującą stan gry,
- * @param[in] min_width               - minimalna szerokość pojedynczego pola,
- * @param[in] min_first_column_width  - minimalna szerokość pierwszego pola w rzędzie.
- * @return Wskaźnik na wyrenderowany ciąg znaków lub NULL jeżeli wystąpi problem
- * podczas alokacji pamięci.
- */
-static inline char *render_board(const gamma_t *g, unsigned min_width,
-                                 unsigned min_first_column_width) {
+void gamma_rendered_fields_width(const gamma_t *g, unsigned *first_column_width,
+                                 unsigned *field_width) {
+    uint64_t max_player = 1; // Najmniejszy numer gracza to 1.
+    for (uint64_t p = 1; p <= g->players_num; p++) {
+        if (g->players[p % g->players_num].occupied_fields > 0 && p > max_player) {
+            max_player = p;
+        }
+    }
+    unsigned min_width = get_uint_length(max_player);
+    // Jeżeli min_width > 1, to dodajemy jeden dodatkowy znak paddingu, aby "najdłuższy"
+    // gracz nie sklejał się z poprzednim.
+    *field_width = min_width == 1 ? 1 : min_width + 1;
+
+    uint64_t max_player_first_column = 1;
+    for (uint64_t r = 0; r < g->height; r++) {
+        if (!g->board[r][0].empty && g->board[r][0].player > max_player_first_column) {
+            max_player_first_column = g->board[r][0].player;
+        }
+    }
+    *first_column_width = get_uint_length(max_player_first_column);
+}
+
+char *gamma_board(gamma_t *g) {
+    if (g == NULL) {
+        return NULL;
+    }
+
+    unsigned min_width, min_first_column_width;
+    gamma_rendered_fields_width(g, &min_first_column_width, &min_width);
     uint64_t written_fields = 0, allocated_space = 0, pos = 0;
     const uint64_t total_fields = g->width * g->height;
-    const unsigned min_buffer_extra_size = 50;
+    const unsigned min_buffer_size = 50;
     char *str = NULL;
 
     for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
         for (uint32_t x = 0; x < g->width; x++) {
-            if ((allocated_space - pos) < min_buffer_extra_size) {
+            if ((allocated_space - pos) < min_buffer_size) {
                 uint64_t left_fields = total_fields - written_fields;
-                uint64_t extra_chars =
-                    left_fields * min_width + y + min_buffer_extra_size;
+                uint64_t extra_chars = left_fields * min_width + y + min_buffer_size;
                 allocated_space += extra_chars * sizeof(char);
                 if ((str = realloc(str, allocated_space)) == NULL) {
                     errno = ENOMEM;
@@ -570,11 +588,7 @@ static inline char *render_board(const gamma_t *g, unsigned min_width,
 
             unsigned field_width = x == 0 ? min_first_column_width : min_width;
             int written_chars;
-            if (gamma_render_field(g, &str[pos], x, y, field_width, &written_chars) !=
-                NO_ERROR) {
-                free(str);
-                return NULL;
-            }
+            gamma_render_field(g, &str[pos], x, y, field_width, &written_chars);
             pos += (unsigned)written_chars;
         }
         str[pos++] = '\n';
@@ -582,33 +596,6 @@ static inline char *render_board(const gamma_t *g, unsigned min_width,
 
     str[pos] = '\0';
     return str;
-}
-
-char *gamma_board(gamma_t *g) {
-    if (g == NULL) {
-        return NULL;
-    }
-
-    uint64_t max_player = 1; // Najmniejszy numer gracza to 1.
-    for (uint64_t p = 1; p <= g->players_num; p++) {
-        if (g->players[p % g->players_num].occupied_fields > 0 && p > max_player) {
-            max_player = p;
-        }
-    }
-    unsigned min_width = get_uint_length(max_player);
-    // Jeżeli min_width > 1, to dodajemy jeden dodatkowy znak paddingu, aby "najdłuższy"
-    // gracz nie sklejał się z poprzednim.
-    min_width = min_width == 1 ? 1 : min_width + 1;
-
-    uint64_t max_player_first_column = 1;
-    for (uint64_t r = 0; r < g->height; r++) {
-        if (!g->board[r][0].empty && g->board[r][0].player > max_player_first_column) {
-            max_player_first_column = g->board[r][0].player;
-        }
-    }
-    unsigned min_first_column_width = get_uint_length(max_player_first_column);
-
-    return render_board(g, min_width, min_first_column_width);
 }
 
 bool gamma_is_valid_player(const gamma_t *g, uint32_t player) {

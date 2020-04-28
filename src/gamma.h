@@ -188,5 +188,16 @@ uint32_t gamma_board_height(gamma_t *g);
 error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
                      uint32_t field_width, int *written_characters);
 
+/**
+ * @brief Zwraca informacje o szerokościach pól podczas wypisywania planszy.
+ * Wskaźnik @p g musi wskazywać na prawidłowo zainicjowaną strukturę gry.
+ * @param[in] g                    - wskaźnik na strukturę przechowującą stan gry,
+ * @param[out] first_column_width  - wskaźnik na komórkę, do której zapisana zostanie
+ *                                   szerokość pola z pierwszej kolumny,
+ * @param[out] field_width         - wskaźnik na komórkę, do której zapisana zostanie
+ *                                   szerokość pola z kolumn innych niż pierwsza.
+ */
+void gamma_rendered_fields_width(const gamma_t *g, unsigned *first_column_width,
+                                 unsigned *field_width);
 
 #endif /* GAMMA_H */
