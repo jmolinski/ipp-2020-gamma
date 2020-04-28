@@ -37,8 +37,7 @@ static inline error_t skip_until_next_line() {
     return errcode;
 }
 
-/** @brief Pomija białe znaki z stdin aż do następnego niebiałego znaku lub EOF.
- */
+/** @brief Pomija białe znaki z stdin aż do następnego niebiałego znaku lub EOF. */
 static inline void skip_white_characters() {
     int ch;
     do {
@@ -52,7 +51,7 @@ static inline void skip_white_characters() {
     } while (isspace(ch) && ch != '\n');
 }
 
-/** @brief Wczytuje do 11 cyfr z stdin.
+/** @brief Wczytuje zera wiodące i do 11 cyfr liczby z stdin.
  * Bufor @p buffer musi mieć odpowiednio dużo miejsca na pomieszczenie wszystkich
  * znaków. Wynik zostaje automatycznie zakończony znakiem \0.
  * @param[out] buffer      – wskaźnik na bufor wyjściowy.
@@ -61,14 +60,16 @@ static inline void skip_white_characters() {
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
 static inline error_t read_uint32_digits(char *buffer) {
-    int ch;
-    int i = 0;
+    int ch, i = 0;
+    bool first_char_zero = false;
     do {
         ch = getchar();
         if (ch == EOF) {
             return ENCOUNTERED_EOF;
         }
-        if (!isdigit(ch)) {
+        if (i == 0 && ch == '0') {
+            first_char_zero = true;
+        } else if (!isdigit(ch)) {
             ungetc(ch, stdin);
             if (!isspace(ch)) {
                 return INVALID_VALUE;
@@ -81,20 +82,23 @@ static inline error_t read_uint32_digits(char *buffer) {
         }
     } while (isdigit(ch));
 
-    buffer[i] = '\0';
     if (i == 0) {
-        return INVALID_VALUE;
+        if (!first_char_zero) {
+            return INVALID_VALUE;
+        }
+        buffer[i++] = '0';
     }
+
+    buffer[i] = '\0';
     return NO_ERROR;
 }
 
 /** @brief Wczytuje następny int bez znaku z stdin.
- * Pomija białe znaki przed liczbą.
+ * Pomija białe znaki przed liczbą oraz zera wiodące.
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
-// TODO -0, leading zeros
 static inline error_t read_uint32(uint32_t *ptr) {
     char buffer[13]; // maksymalna długość uint32_t to 10
     skip_white_characters();
