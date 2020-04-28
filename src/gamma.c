@@ -281,8 +281,8 @@ static inline unsigned union_neighbors(gamma_t *g, uint32_t column, uint32_t row
 static inline unsigned new_border_empty_fields(const gamma_t *g, int64_t x, int64_t y,
                                                uint32_t player) {
     unsigned new_nearby_empty_fields = 0;
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
+    for (int64_t dx = -1; dx <= 1; dx++) {
+        for (int64_t dy = -1; dy <= 1; dy++) {
             if ((dx == 0 && dy == 0) || (dx != 0 && dy != 0)) {
                 continue;
             }
@@ -526,8 +526,8 @@ static unsigned get_uint_length(uint64_t value) {
     return l;
 }
 
-error_t render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
-                     uint32_t field_width, uint32_t *written_characters) {
+error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
+                           uint32_t field_width, int *written_characters) {
     if (g->board[y][x].empty) {
         *written_characters = sprintf(str, "%*c", field_width, '.');
     } else {
@@ -563,13 +563,14 @@ static inline char *render_board(const gamma_t *g, unsigned min_width,
                 allocated_space += extra_chars * sizeof(char);
                 if ((str = realloc(str, allocated_space)) == NULL) {
                     errno = ENOMEM;
+                    free(str);
                     return NULL;
                 }
             }
 
             unsigned field_width = x == 0 ? min_first_column_width : min_width;
-            uint32_t written_chars;
-            if (render_field(g, &str[pos], x, y, field_width, &written_chars) !=
+            int written_chars;
+            if (gamma_render_field(g, &str[pos], x, y, field_width, &written_chars) !=
                 NO_ERROR) {
                 free(str);
                 return NULL;
@@ -589,7 +590,7 @@ char *gamma_board(gamma_t *g) {
     }
 
     uint64_t max_player = 1; // Najmniejszy numer gracza to 1.
-    for (uint64_t p = 1; p < g->players_num; p++) {
+    for (uint64_t p = 1; p <= g->players_num; p++) {
         if (g->players[p % g->players_num].occupied_fields > 0 && p > max_player) {
             max_player = p;
         }
@@ -621,4 +622,12 @@ bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t pl
 
 uint32_t gamma_players_number(gamma_t *g) {
     return g == NULL ? 0 : g->players_num;
+}
+
+uint32_t gamma_board_width(gamma_t *g) {
+    return g == NULL ? 0 : g->width;
+}
+
+uint32_t gamma_board_height(gamma_t *g) {
+    return g == NULL ? 0 : g->height;
 }
