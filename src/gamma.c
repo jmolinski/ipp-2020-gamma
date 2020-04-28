@@ -7,6 +7,7 @@
  */
 
 #include "gamma.h"
+#include "errors.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,22 +16,22 @@
  * Struktura przechowująca stan pola.
  */
 typedef struct field {
-    uint32_t player;      /**< Numer gracza zajmującego pole. */
-    bool empty;           /**< Informacja czy dane pole jest puste. */
+    bool empty;      /**< Informacja czy dane pole jest puste. */
+    uint8_t rank;    /**< Ranga obszaru, którego rodzicem jest to pole (find-union). */
+    uint32_t player; /**< Numer gracza zajmującego pole. */
     struct field *parent; /**< Rodzic pola w danym obszarze (find-union). */
-    uint8_t rank; /**< Ranga obszaru, którego rodzicem jest to pole (find-union). */
 } field_t;
 
 /**
  * Struktura przechowująca stan gracza.
  */
 typedef struct player {
+    bool golden_move_done; /**< Informacja czy gracz wykonał już złoty ruch. */
+    uint32_t areas; /**< Liczba rozłącznych obszarów zajmowanych przez gracza. */
     uint64_t occupied_fields;     /**< Liczba pól zajmowanych przez gracza. */
     uint64_t border_empty_fields; /**< Liczba pól, na których gracz może postawić
                                    * pionek bez zwiększania liczby rozłącznych
                                    * obszarów. */
-    uint32_t areas; /**< Liczba rozłącznych obszarów zajmowanych przez gracza. */
-    bool golden_move_done; /**< Informacja czy gracz wykonał już złoty ruch. */
 } player_t;
 
 /**
@@ -183,7 +184,7 @@ void gamma_delete(gamma_t *g) {
     free(g);
 }
 
-/** @brief Sprawdza czy pole należy do planszy.
+/** @brief Sprawdza, czy pole należy do planszy.
  * Złożoność O(1).
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] x       – numer kolumny,
@@ -195,7 +196,7 @@ static inline bool is_within_board(const gamma_t *g, int64_t x, int64_t y) {
     return x >= 0 && y >= 0 && g->width > x && g->height > y;
 }
 
-/** @brief Sprawdza czy pole należy do zadanego gracza.
+/** @brief Sprawdza, czy pole należy do zadanego gracza.
  * Złożoność O(1).
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] x       – numer kolumny,
@@ -210,7 +211,7 @@ static inline bool belongs_to_player(const gamma_t *g, int64_t x, int64_t y,
            g->board[y][x].player == player;
 }
 
-/** @brief Sprawdza czy zadane pole sąsiaduje z polem zadanego gracza.
+/** @brief Sprawdza, czy zadane pole sąsiaduje z polem zadanego gracza.
  * Złożoność O(1).
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] x       – numer kolumny,
@@ -248,12 +249,12 @@ static inline field_t *get_field(const gamma_t *g, int64_t x, int64_t y) {
  * @param[in] row       – numer wiersza.
  * @return Liczbę pomyślnie przeprowadzonych operacji union (0, 1, 2, 3 lub 4).
  */
-static inline uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
+static inline unsigned union_neighbors(gamma_t *g, uint32_t column, uint32_t row) {
     field_t **board = g->board;
     field_t *this_field = &board[row][column];
     const uint32_t player = this_field->player;
 
-    uint8_t merged_areas = 0;
+    unsigned merged_areas = 0;
 
     if (belongs_to_player(g, column + 1, row, player))
         merged_areas += fu_union(this_field, &board[row][column + 1]);
@@ -277,9 +278,9 @@ static inline uint8_t union_neighbors(gamma_t *g, uint32_t column, uint32_t row)
  * @param[in] player  – numer gracza.
  * @return Liczbę pól spełniających zadany warunek (0, 1, 2, 3 lub 4).
  */
-static inline uint8_t new_border_empty_fields(const gamma_t *g, int64_t x, int64_t y,
-                                              uint32_t player) {
-    uint8_t new_nearby_empty_fields = 0;
+static inline unsigned new_border_empty_fields(const gamma_t *g, int64_t x, int64_t y,
+                                               uint32_t player) {
+    unsigned new_nearby_empty_fields = 0;
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
             if ((dx == 0 && dy == 0) || (dx != 0 && dy != 0)) {
@@ -304,9 +305,10 @@ static inline uint8_t new_border_empty_fields(const gamma_t *g, int64_t x, int64
  */
 static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x,
                                                            int64_t y) {
-    field_t *neighbors[4] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
-                             get_field(g, x, y + 1), get_field(g, x, y - 1)};
-    for (int i = 0; i < 4; i++) {
+    const unsigned neighbors_count = 4;
+    field_t *neighbors[] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
+                            get_field(g, x, y + 1), get_field(g, x, y - 1)};
+    for (unsigned i = 0; i < neighbors_count; i++) {
         if (neighbors[i] == NULL || neighbors[i]->empty) {
             continue;
         }
@@ -314,7 +316,7 @@ static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x
         uint32_t neighbor = neighbors[i]->player;
         g->players[neighbor % g->players_num].border_empty_fields--;
 
-        for (int j = i; j < 4; j++) {
+        for (unsigned j = i; j < neighbors_count; j++) {
             if (neighbors[j] != NULL && neighbors[j]->player == neighbor) {
                 neighbors[j] = NULL;
             }
@@ -322,7 +324,7 @@ static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x
     }
 }
 
-/** @brief Sprawdza czy zajęcie pola przez gracza sprawi, że przekroczy on limit
+/** @brief Sprawdza, czy zajęcie pola przez gracza sprawi, że przekroczy on limit
  * obszarów.
  * Złożoność O(1).
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
@@ -404,7 +406,7 @@ static bool reindex_areas(gamma_t *g) {
                 continue;
             }
             uint32_t player_index = g->board[row][column].player % g->players_num;
-            uint8_t merged_areas = union_neighbors(g, column, row);
+            unsigned merged_areas = union_neighbors(g, column, row);
             g->players[player_index].areas -= merged_areas;
         }
     }
@@ -419,7 +421,7 @@ static bool reindex_areas(gamma_t *g) {
 }
 
 /**
- * @brief Sprawdza czy możliwe jest podjęcie próby wykonania złotego ruchu.
+ * @brief Sprawdza, czy możliwe jest podjęcie próby wykonania złotego ruchu.
  * Złożoność O(1)
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] player  – numer gracza,
@@ -515,13 +517,26 @@ bool gamma_golden_possible(gamma_t *g, uint32_t player) {
  * @param[in] value   - liczba nieujemna.
  * @return Liczbę cyfr liczby @p value.
  */
-uint8_t get_uint_length(uint64_t value) {
-    uint8_t l = 1;
+static unsigned get_uint_length(uint64_t value) {
+    unsigned l = 1;
     while (value > 9) {
         l++;
         value /= 10;
     }
     return l;
+}
+
+error_t render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
+                     uint32_t field_width, uint32_t *written_characters) {
+    if (g->board[y][x].empty) {
+        *written_characters = sprintf(str, "%*c", field_width, '.');
+    } else {
+        *written_characters = sprintf(str, "%*u", field_width, g->board[y][x].player);
+    }
+    if (*written_characters < 0) {
+        return INVALID_VALUE;
+    }
+    return NO_ERROR;
 }
 
 /**
@@ -532,31 +547,34 @@ uint8_t get_uint_length(uint64_t value) {
  * @return Wskaźnik na wyrenderowany ciąg znaków lub NULL jeżeli wystąpi problem
  * podczas alokacji pamięci.
  */
-static inline char *render_board(const gamma_t *g, uint8_t min_width,
-                                 uint8_t min_first_column_width) {
+static inline char *render_board(const gamma_t *g, unsigned min_width,
+                                 unsigned min_first_column_width) {
     uint64_t written_fields = 0, allocated_space = 0, pos = 0;
     const uint64_t total_fields = g->width * g->height;
+    const unsigned min_buffer_extra_size = 50;
     char *str = NULL;
 
     for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
         for (uint32_t x = 0; x < g->width; x++) {
-            if ((allocated_space - pos) < 50) {
+            if ((allocated_space - pos) < min_buffer_extra_size) {
                 uint64_t left_fields = total_fields - written_fields;
-                // 50 nie ma szczególnego znaczenia - alokowane jest trochę więcej niż
-                // potrzebne.
-                allocated_space += (left_fields * min_width + y + 50) * sizeof(char);
+                uint64_t extra_chars =
+                    left_fields * min_width + y + min_buffer_extra_size;
+                allocated_space += extra_chars * sizeof(char);
                 if ((str = realloc(str, allocated_space)) == NULL) {
                     errno = ENOMEM;
                     return NULL;
                 }
             }
 
-            uint8_t field_width = x == 0 ? min_first_column_width : min_width;
-            if (g->board[y][x].empty) {
-                pos += sprintf(&str[pos], "%*c", field_width, '.');
-            } else {
-                pos += sprintf(&str[pos], "%*u", field_width, g->board[y][x].player);
+            unsigned field_width = x == 0 ? min_first_column_width : min_width;
+            uint32_t written_chars;
+            if (render_field(g, &str[pos], x, y, field_width, &written_chars) !=
+                NO_ERROR) {
+                free(str);
+                return NULL;
             }
+            pos += (unsigned)written_chars;
         }
         str[pos++] = '\n';
     }
@@ -576,7 +594,7 @@ char *gamma_board(gamma_t *g) {
             max_player = p;
         }
     }
-    uint8_t min_width = get_uint_length(max_player);
+    unsigned min_width = get_uint_length(max_player);
     // Jeżeli min_width > 1, to dodajemy jeden dodatkowy znak paddingu, aby "najdłuższy"
     // gracz nie sklejał się z poprzednim.
     min_width = min_width == 1 ? 1 : min_width + 1;
@@ -587,7 +605,7 @@ char *gamma_board(gamma_t *g) {
             max_player_first_column = g->board[r][0].player;
         }
     }
-    uint8_t min_first_column_width = get_uint_length(max_player_first_column);
+    unsigned min_first_column_width = get_uint_length(max_player_first_column);
 
     return render_board(g, min_width, min_first_column_width);
 }
@@ -601,6 +619,6 @@ bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t pl
     return !(width == 0 || height == 0 || players == 0 || areas == 0);
 }
 
-uint32_t gamma_players_number(gamma_t* g) {
+uint32_t gamma_players_number(gamma_t *g) {
     return g == NULL ? 0 : g->players_num;
 }
