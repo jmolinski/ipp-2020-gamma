@@ -27,7 +27,7 @@
  * jeżeli wystąpił błąd alokacji pamięci.
  */
 static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
-    error_t error;
+    error_t error = NO_ERROR;
     uint32_t args[4];
     do {
         (*line)++;
@@ -36,8 +36,10 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
             if (!gamma_game_new_arguments_valid(args[0], args[1], args[2], args[3])) {
                 error = INVALID_VALUE;
             }
-        }
-        if (error != NO_ERROR) {
+        } else {
+            if (error == ENCOUNTERED_EOF) {
+                return ENCOUNTERED_EOF;
+            }
             if (error != LINE_IGNORED) {
                 fprintf(stderr, "ERROR %lu\n", *line);
             }
@@ -61,12 +63,15 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
 int main() {
     // TODO przetestowanie jak dziala kiedy malloc sie gdzies wywali
     char mode;
-    gamma_t *game;
+    gamma_t *game = NULL;
     uint64_t line = 0;
 
     error_t error = create_game_struct(&game, &mode, &line);
     if (error == MEMORY_ERROR) {
         return 1;
+    }
+    if (error == ENCOUNTERED_EOF) {
+        return 0;
     }
 
     if (mode == 'B') {
