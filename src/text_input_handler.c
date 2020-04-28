@@ -100,7 +100,7 @@ static inline error_t read_uint32_digits(char *buffer) {
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
 static inline error_t read_uint32(uint32_t *ptr) {
-    char buffer[13]; // maksymalna długość uint32_t to 10
+    char buffer[13]; // Maksymalna długość uint32_t to 10 znaków.
     skip_white_characters();
     int error = read_uint32_digits(buffer);
     if (error != NO_ERROR) {

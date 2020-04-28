@@ -14,6 +14,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
+
+/** Wszystkie identyfikatory dozwolonych trybów rozgrywki. */
+#define GAME_MODE_IDENTIFIERS "BI"
 
 /** @brief Wczytuje parametry gry z stdin.
  * Wczytuje wiersze z stdin tak długo aż nie uda się poprawnie utworzyć nowej gry.
@@ -31,7 +35,7 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
     uint32_t args[4];
     do {
         (*line)++;
-        error = read_next_command(mode, args, "BI");
+        error = read_next_command(mode, args, GAME_MODE_IDENTIFIERS);
         if (error == NO_ERROR) {
             if (!gamma_game_new_arguments_valid(args[0], args[1], args[2], args[3])) {
                 error = INVALID_VALUE;
@@ -41,7 +45,7 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
                 return ENCOUNTERED_EOF;
             }
             if (error != LINE_IGNORED) {
-                fprintf(stderr, "ERROR %lu\n", *line);
+                fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
             }
         }
     } while (error != NO_ERROR);

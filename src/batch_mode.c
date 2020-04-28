@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/** Wszystkie identyfikatory komend dozwolonych w trybie wsadowym */
+#define BATCH_COMMAND_IDENTIFIERS "mgbfqp"
+
 /** @brief Wykonuje gamma_move lub gamma_golden_move.
  * Weryfikuje poprawność przekazanych argumenów i wykonuje zadaną komendę.
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan grym
@@ -25,7 +28,7 @@
  */
 static error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player,
                                        uint32_t x, uint32_t y) {
-    // TODO tutaj walidacja powinan  byc osobno i wywwalac ERROR zamiast 0 raczej
+    // TODO tutaj walidacja powinna  byc osobno i wywwalac ERROR zamiast 0 raczej
     bool move_performed;
     if (command == 'm') {
         move_performed = gamma_move(g, player, x, y);
@@ -62,7 +65,7 @@ static error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
         result = (uint32_t)gamma_golden_possible(g, player);
     }
 
-    printf("%u\n", result);
+    printf("%" PRIu32 "\n", result);
     return NO_ERROR;
 }
 
@@ -95,7 +98,7 @@ static error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
 }
 
 void run_batch_mode(gamma_t *g, uint64_t *line) {
-    printf("OK %lu\n", *line); // Gra rozpoczęta prawidłowo.
+    printf("OK %" PRIu64 "\n", *line); // Gra rozpoczęta prawidłowo.
 
     char command;
     uint32_t args[3];
@@ -103,18 +106,18 @@ void run_batch_mode(gamma_t *g, uint64_t *line) {
 
     do {
         (*line)++;
-        error = read_next_command(&command, args, "mgbfqp");
+        error = read_next_command(&command, args, BATCH_COMMAND_IDENTIFIERS);
         if (error == NO_ERROR) {
             error = run_command(g, command, args);
             if (error != NO_ERROR) {
                 if (errno == ENOMEM) {
                     return;
                 } else {
-                    fprintf(stderr, "ERROR %lu\n", *line);
+                    fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
                 }
             }
         } else if (error == INVALID_VALUE) {
-            fprintf(stderr, "ERROR %lu\n", *line);
+            fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
         }
     } while (error != ENCOUNTERED_EOF);
 }
