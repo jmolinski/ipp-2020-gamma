@@ -16,25 +16,42 @@
 /** Kod ASCII 4, odpowiednik EOF przy wczytywaniu bez buforowania */
 #define END_OF_TRANSMISSION 4
 
-void move_cursor(uint32_t column, uint32_t row) {
+static inline void move_cursor(uint32_t column, uint32_t row) {
     printf("\x1b[%u;%uH", row, column);
 }
 
-error_t print_board(gamma_t *g, uint32_t cursor_x, uint32_t cursor_y, uint32_t player) {
+static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
+                           uint32_t player) {
     printf("\x1b[2J"); // clear screen & nuke scrollback
     move_cursor(0, 0);
+    const uint32_t board_width = gamma_board_width(g);
 
-    char *board = gamma_board(g);
-    if (board == NULL) {
-        return MEMORY_ERROR;
+    for (int64_t y = gamma_board_height(g) - 1; y >= 0; y--) {
+        for (uint32_t x = 0; x < board_width; x++) {
+            // unsigned field_width = x == 0 ? min_first_column_width : min_width;
+            // TODO szerokosc pola
+            unsigned field_width = 1;
+            int written_chars;
+            char buffer[15];
+            gamma_render_field(g, buffer, x, y, field_width, &written_chars);
+            if (written_chars < 0) {
+                return MEMORY_ERROR;
+            }
+            if (y == field_y && x == field_x) {
+                printf("\x1b[31;105m%s\x1b[m", buffer); // TODO opisac
+            } else {
+                printf("%s", buffer);
+            }
+        }
+        printf("\n");
     }
-    printf("%s", board);
+
     printf("Player %u\nFree fields %lu\nOccupied fields %lu\n", player,
            gamma_free_fields(g, player), gamma_busy_fields(g, player));
     return NO_ERROR;
 }
 
-void cleanup() {
+static void cleanup() {
     printf("\x1b[2J");     // clean up the alternate buffer
     printf("\x1b[?1049l"); // switch back to the normal buffer
     printf("\x1b[?25h");   // show the cursor again
@@ -45,7 +62,7 @@ static void restore_terminal_settings(struct termios *old) {
     cleanup();
 }
 
-void adjust_terminal_settings(struct termios *old, struct termios *new) {
+static void adjust_terminal_settings(struct termios *old, struct termios *new) {
     /* tcgetattr gets the parameters of the current terminal
     STDIN_FILENO will tell tcgetattr that it should write the settings
     of stdin to oldt */
@@ -67,6 +84,29 @@ void adjust_terminal_settings(struct termios *old, struct termios *new) {
     printf("\x1b[?25l");   // hide cursor
 }
 
+void respond_to_arrow_key(gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
+    // Sekwencja oznaczająca strzałkę to 27 91 (65|66|67|68)
+    int key;
+    if ((key = getchar()) != 27) {
+        ungetc(key, stdin);
+        return;
+    }
+    if ((key = getchar()) != 91) {
+        ungetc(key, stdin);
+        return;
+    }
+    key = getchar();
+    if (key == 65) { // Strzałka w górę
+        *field_y = *field_y + 1 < gamma_board_height(g) ? *field_y + 1 : *field_y;
+    } else if (key == 66) { // Strzałka w dół.
+        *field_y = *field_y > 0 ? *field_y - 1 : 0;
+    } else if (key == 67) { // Strzałka w prawo.
+        *field_x = *field_x + 1 < gamma_board_width(g) ? *field_x + 1 : *field_x;
+    } else if (key == 68) { // Strzałka w lewo.
+        *field_x = *field_x > 0 ? *field_x - 1 : 0;
+    }
+}
+
 void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_y,
                     uint32_t player, bool *advance_player) {
     *advance_player = false;
@@ -80,29 +120,13 @@ void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_
     } else if (key == 'g' || key == 'G') {
         gamma_golden_move(game, player, *field_x, *field_y);
         *advance_player = true;
-    } else if (key == 27) { // arrow key sequence start TODO polski
-        // sequence: 27, 91, (65 | 66 | 67 | 68)
-        int next = getchar();
-        if (next != 91) {
-            ungetc(next, stdin);
-            return;
-        }
-        next = getchar();
-        if (next == 65) { // Strzałka w górę
-            *field_y = *field_y > 0 ? *field_y - 1 : 0;
-        } else if (next == 66) { // Strzałka w dół.
-            // TODO ograniczenia planszy
-            *field_y = *field_y < 1000 ? *field_y + 1 : *field_y;
-        } else if (next == 67) { // Strzałka w prawo.
-            // TODO ograniczenie
-            *field_x = *field_x < 1000 ? *field_x + 1 : *field_x;
-        } else if (next == 68) { // Strzałka w lewo.
-            *field_x = *field_x > 0 ? *field_x - 1 : 0;
-        }
+    } else if (key == 27) { // Jeden z klawiszy strzałek.
+        ungetc(key, stdin);
+        respond_to_arrow_key(game, field_x, field_y);
     }
 }
 
-void print_game_summary(gamma_t *g) {
+static inline void print_game_summary(gamma_t *g) {
     char *rendered_board = gamma_board(g);
     if (rendered_board != NULL) {
         printf("%s", rendered_board);
@@ -110,12 +134,13 @@ void print_game_summary(gamma_t *g) {
     // TODO summary graczy
 }
 
-bool advance_player_number(uint32_t *current_player, const uint32_t players) {
+static inline bool advance_player_number(uint32_t *current_player,
+                                         const uint32_t players) {
     *current_player = (*current_player % players) + 1;
     return false;
 }
 
-error_t run_io_loop(gamma_t *g) {
+static error_t run_io_loop(gamma_t *g) {
     uint32_t field_x = 0;
     uint32_t field_y = 0;
     uint32_t current_player = 1;
