@@ -7,7 +7,6 @@
  */
 
 #include "gamma.h"
-#include "errors.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

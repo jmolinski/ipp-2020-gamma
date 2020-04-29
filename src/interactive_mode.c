@@ -141,6 +141,11 @@ static inline bool advance_player_number(gamma_t *g, uint32_t *player,
     return true;
 }
 
+/** @brief Wczytuje ruchy użytkownika, reaguje na nie i aktualizuje planszę.
+ * @param[in] g          – wskaźnik na strukturę danych gry.
+ * @return Kod @p NO_ERROR jeżeli rozgrywka przebiegła bez błędów, @p MEMORY_ERROR,
+ * jeżeli wystąpił błąd alokacji pamięci.
+ */
 static error_t run_io_loop(gamma_t *g) {
     uint32_t field_x = 0, field_y = 0, current_player = 1;
     const uint32_t players = gamma_players_number(g);
@@ -170,6 +175,12 @@ static error_t run_io_loop(gamma_t *g) {
     }
 }
 
+/** @brief Przeprowadza rozgrywkę w trybie wsadowym.
+ * @param[out] new       – wskaźnik na strukturę, w której zapisane zostaną nowe
+ *                         ustawienia termianala.
+ * @param[out] old       – wskaźnik na strukturę, w której zapisane zostaną oryginalne
+ *                         ustawienia termianala.
+ */
 static void adjust_terminal_settings(struct termios *old, struct termios *new) {
     tcgetattr(STDIN_FILENO, old);
     *new = *old;
@@ -184,11 +195,18 @@ static void adjust_terminal_settings(struct termios *old, struct termios *new) {
     printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
 }
 
+/** @brief Przeprowadza rozgrywkę w trybie wsadowym.
+ * @param[in] old          – wskaźnik na strukturę przechowującą oryginalne
+ *                           ustawienia termianala.
+ */
 static void restore_terminal_settings(struct termios *old) {
     tcsetattr(STDIN_FILENO, TCSANOW, old);
     printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
 }
 
+/** @brief Wyświetla planszę i statystyki graczy.
+ * @param[in] g          – wskaźnik na strukturę danych gry.
+ */
 static inline void print_game_summary(gamma_t *g) {
     char *rendered_board = gamma_board(g);
     if (rendered_board == NULL) {
