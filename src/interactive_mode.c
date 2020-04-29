@@ -33,7 +33,16 @@
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
 
-static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
+/** @brief Aktualizuje planszę na ekranie terminala.
+ * Czyści aktualny bufor terminala i wypisuje aktualny stan planszy, wiersz
+ * zachęcający gracza do dokonania ruchu, oraz ewentualny komunikat błędu.
+ * @param[in,out] g           – wskaźnik na strukturę danych gry,
+ * @param[in] field_x         – numer kolumny kursora,
+ * @param[in] field_y         – numer wiersza kursora,
+ * @param[in] player          – numer gracza dokonującego ruch,
+ * @param[out] error_message  – wskaźnik na bufor znakowy zawierający komunikat błędu.
+ */
+static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
                            uint32_t player, char *error_message) {
     printf(CLEAR_SCREEN);
     printf(MOVE_CURSOR, 0, 0);
@@ -47,9 +56,6 @@ static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
             int written_chars;
             char buffer[15];
             gamma_render_field(g, buffer, x, y, field_width, &written_chars);
-            if (written_chars < 0) {
-                return MEMORY_ERROR;
-            }
             if (y == field_y && x == field_x) {
                 printf(INVERT_COLORS "%s" RESET_COLORS, buffer);
             } else {
@@ -65,11 +71,14 @@ static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
     if (error_message[0] != '\0') {
         printf("%s\n", error_message);
     }
-
-    return NO_ERROR;
 }
 
-void respond_to_arrow_key(gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
+/** @brief Przesuwa kursor na podstawie wciśniętego klawisza strzałki.
+ * @param[in] g               – wskaźnik na strukturę danych gry,
+ * @param[in,out] field_x     – wskaźnik na numer kolumny kursora,
+ * @param[in,out] field_y     – wskaźnik na numer wiersza kursora.
+ */
+void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
     // Sekwencja oznaczająca strzałkę to 27 91 (65|66|67|68)
     int key;
     if ((key = getchar()) != 27) {
@@ -92,6 +101,18 @@ void respond_to_arrow_key(gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
     }
 }
 
+/** @brief Reaguje na działanie użytkownika.
+ * Wykonuje odpowiednią akcję na podstawie klawisza wciśniętego przez gracza.
+ * @param[in] key             – kod znaku odpowiadającego wciśniętemu klawiszowi,
+ * @param[in,out] game        – wskaźnik na strukturę danych gry,
+ * @param[in,out] field_x     – wskaźnik na numer kolumny kursora,
+ * @param[in,out] field_y     – wskaźnik na numer wiersza kursora,
+ * @param[in] player          – numer gracza dokonującego ruch,
+ * @param[out] advance_player – wskaźnik na wartość logiczną oznaczającą, czy należy
+ *                              przesunąć kolejkę na następnego gracza,
+ * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany może
+ *                              zostać ewentualny kod błędu.
+ */
 void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_y,
                     uint32_t player, bool *advance_player, char *error_message) {
     *advance_player = false;
@@ -118,58 +139,59 @@ void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_
     }
 }
 
-static inline bool advance_player_number(gamma_t *g, uint32_t *player,
-                                         const uint32_t players) {
+/** @brief Wyznacza następnego w kolejności gracza, który może dokonać ruchu.
+ * @param[in] g             – wskaźnik na strukturę danych gry,
+ * @param[in,out] player    – wskaźnik na numer aktualnego gracza, który zostanie
+ *                            zaktualizowany.
+ * @return Wartość logiczną @p true, jeżeli znaleziono następnego gracza, lub
+ * @p false, jeżeli żaden gracz nie może dokonać ruchu i należy zakończyć grę.
+ */
+static inline bool advance_player_number(gamma_t *g, uint32_t *player) {
+    const uint32_t players = gamma_players_number(g);
     uint32_t next_player = (*player % players) + 1;
     const uint32_t next_player_guard = next_player;
 
     if (gamma_free_fields(g, next_player) != 0 ||
         gamma_golden_possible(g, next_player)) {
         *player = next_player;
-        return false;
+        return true;
     }
     do {
         next_player = (next_player % players) + 1;
         if (gamma_free_fields(g, next_player) != 0 ||
             gamma_golden_possible(g, next_player)) {
             *player = next_player;
-            return false;
+            return true;
         }
     } while (next_player != next_player_guard);
 
     // Żaden gracz nie może wykonać już ruchu.
-    return true;
+    return false;
 }
 
 /** @brief Wczytuje ruchy użytkownika, reaguje na nie i aktualizuje planszę.
- * @param[in] g          – wskaźnik na strukturę danych gry.
- * @return Kod @p NO_ERROR jeżeli rozgrywka przebiegła bez błędów, @p MEMORY_ERROR,
- * jeżeli wystąpił błąd alokacji pamięci.
+ * @param[in,out] g          – wskaźnik na strukturę danych gry.
  */
-static error_t run_io_loop(gamma_t *g) {
+static void run_io_loop(gamma_t *g) {
     uint32_t field_x = 0, field_y = 0, current_player = 1;
-    const uint32_t players = gamma_players_number(g);
     char error_message[100];
     error_message[0] = '\0';
 
     while (true) {
-        error_t error = print_board(g, field_x, field_y, current_player, error_message);
-        if (error == MEMORY_ERROR) {
-            return MEMORY_ERROR;
-        }
+        print_board(g, field_x, field_y, current_player, error_message);
 
         int c = getchar();
         if (c == END_OF_TRANSMISSION) { // ctrl+d
-            return NO_ERROR;
+            return;
         }
 
         bool advance_player;
         respond_to_key((char)c, g, &field_x, &field_y, current_player, &advance_player,
                        error_message);
         if (advance_player) {
-            bool game_ended = advance_player_number(g, &current_player, players);
-            if (game_ended) {
-                return NO_ERROR;
+            bool game_continues = advance_player_number(g, &current_player);
+            if (!game_continues) {
+                return;
             }
         }
     }
@@ -225,9 +247,7 @@ static inline void print_game_summary(gamma_t *g) {
 void run_interactive_mode(gamma_t *g) {
     struct termios old_settings, new_settings;
     adjust_terminal_settings(&old_settings, &new_settings);
-    error_t error = run_io_loop(g);
+    run_io_loop(g);
     restore_terminal_settings(&old_settings);
-    if (error == NO_ERROR) {
-        print_game_summary(g);
-    }
+    print_game_summary(g);
 }

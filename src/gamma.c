@@ -604,15 +604,15 @@ bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t pl
     return !(width == 0 || height == 0 || players == 0 || areas == 0);
 }
 
-uint32_t gamma_players_number(gamma_t *g) {
+uint32_t gamma_players_number(const gamma_t *g) {
     return g == NULL ? 0 : g->players_num;
 }
 
-uint32_t gamma_board_width(gamma_t *g) {
+uint32_t gamma_board_width(const gamma_t *g) {
     return g == NULL ? 0 : g->width;
 }
 
-uint32_t gamma_board_height(gamma_t *g) {
+uint32_t gamma_board_height(const gamma_t *g) {
     return g == NULL ? 0 : g->height;
 }
 

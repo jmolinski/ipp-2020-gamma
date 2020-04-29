@@ -157,19 +157,19 @@ bool gamma_game_golden_move_arguments_valid(const gamma_t *g, uint32_t player,
  * @param[in] g        – wskaźnik na strukturę przechowującą stan gry.
  * @return liczba graczy.
  */
-uint32_t gamma_players_number(gamma_t *g);
+uint32_t gamma_players_number(const gamma_t *g);
 
 /** @brief Zwraca szerokość planszy.
  * @param[in] g        – wskaźnik na strukturę przechowującą stan gry.
  * @return szerokość planszy.
  */
-uint32_t gamma_board_width(gamma_t *g);
+uint32_t gamma_board_width(const gamma_t *g);
 
 /** @brief Zwraca wysokość planszy.
  * @param[in] g        – wskaźnik na strukturę przechowującą stan gry.
  * @return wysokość planszy.
  */
-uint32_t gamma_board_height(gamma_t *g);
+uint32_t gamma_board_height(const gamma_t *g);
 
 /**
  * @brief Renderuje pole do postaci łańcucha znaków.
