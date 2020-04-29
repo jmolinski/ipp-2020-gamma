@@ -341,14 +341,12 @@ static inline bool would_exceed_areas_limit(const gamma_t *g, uint32_t player,
 }
 
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
-        y >= g->height || !g->board[y][x].empty ||
-        would_exceed_areas_limit(g, player, x, y)) {
+    if (!gamma_game_move_arguments_valid(g, player, x, y)) {
         return false;
     }
 
     const uint32_t player_index = player % g->players_num;
-    int border_empty_fields_to_add = new_border_empty_fields(g, x, y, player);
+    unsigned border_empty_fields_to_add = new_border_empty_fields(g, x, y, player);
 
     g->board[y][x].player = player;
     g->board[y][x].empty = false;
@@ -444,7 +442,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
         return false;
     }
 
-    int border_empty_fields_to_add = new_border_empty_fields(g, x, y, player);
+    unsigned border_empty_fields_to_add = new_border_empty_fields(g, x, y, player);
 
     uint32_t previous_player = g->board[y][x].player;
     uint32_t previous_player_index = previous_player % g->players_num;
@@ -462,7 +460,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     g->players[player_index].border_empty_fields += border_empty_fields_to_add;
     g->players[player_index].golden_move_done = true;
 
-    const int lost_border_empty_fields =
+    unsigned lost_border_empty_fields =
         new_border_empty_fields(g, x, y, previous_player);
     g->players[previous_player_index].occupied_fields--;
     g->players[previous_player_index].border_empty_fields -= lost_border_empty_fields;
@@ -617,4 +615,16 @@ uint32_t gamma_board_width(gamma_t *g) {
 
 uint32_t gamma_board_height(gamma_t *g) {
     return g == NULL ? 0 : g->height;
+}
+
+bool gamma_game_move_arguments_valid(const gamma_t *g, uint32_t player, uint32_t x,
+                                     uint32_t y) {
+    return !(g == NULL || player == 0 || player > g->players_num || x >= g->width ||
+             y >= g->height || !g->board[y][x].empty ||
+             would_exceed_areas_limit(g, player, x, y));
+}
+
+bool gamma_game_golden_move_arguments_valid(const gamma_t *g, uint32_t player,
+                                            uint32_t x, uint32_t y) {
+    return !is_golden_move_impossible(g, player, x, y);
 }

@@ -30,7 +30,7 @@
 /** ANSI escape code - przełączenie na glówny bufor terminala. */
 #define SET_NORMAL_BUFFER "\x1b[?1049l"
 /** ANSI escape code - zmiana kolorów na   */
-#define INVERT_COLORS "\x1b[31;105m"
+#define INVERT_COLORS "\x1b[30;107m"
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
 
@@ -155,18 +155,35 @@ static inline void print_game_summary(gamma_t *g) {
         }
         printf("Player %" PRIu64 " has %" PRIu64 " points.\n", p, player_points);
     }
-    /* TODO winner - co jeśli więcej niż 1 gracz wygrywa?
+
+    // TODO winner - co jeśli więcej niż 1 gracz wygrywa?
     if (winner) {
         printf("Winner: player %" PRIu32 " with %" PRIu64 " points.\n", winner,
                winner_points);
     }
-     */
 }
 
-static inline bool advance_player_number(uint32_t *current_player,
+static inline bool advance_player_number(gamma_t *g, uint32_t *player,
                                          const uint32_t players) {
-    *current_player = (*current_player % players) + 1;
-    return false;
+    uint32_t next_player = (*player % players) + 1;
+    const uint32_t next_player_guard = next_player;
+
+    if (gamma_free_fields(g, next_player) != 0 ||
+        gamma_golden_possible(g, next_player)) {
+        *player = next_player;
+        return false;
+    }
+    do {
+        next_player = (next_player % players) + 1;
+        if (gamma_free_fields(g, next_player) != 0 ||
+            gamma_golden_possible(g, next_player)) {
+            *player = next_player;
+            return false;
+        }
+    } while (next_player != next_player_guard);
+
+    // Żaden gracz nie może wykonać już ruchu.
+    return true;
 }
 
 static error_t run_io_loop(gamma_t *g) {
@@ -190,7 +207,7 @@ static error_t run_io_loop(gamma_t *g) {
         respond_to_key((char)c, g, &field_x, &field_y, current_player, &advance_player,
                        error_message);
         if (advance_player) {
-            bool game_ended = advance_player_number(&current_player, players);
+            bool game_ended = advance_player_number(g, &current_player, players);
             if (game_ended) {
                 return NO_ERROR;
             }

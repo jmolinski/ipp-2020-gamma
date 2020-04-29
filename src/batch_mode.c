@@ -28,7 +28,8 @@
  */
 static error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player,
                                        uint32_t x, uint32_t y) {
-    // TODO tutaj walidacja powinna  byc osobno i wywwalac ERROR zamiast 0 raczej
+    // TODO czy nalezy odpalac na slepo gamma_move nawet jesli np x/y sa poza plansza
+    // czy ma byc osobno walidacja argumentow, wypisywanie ERROR {line} i osobno 0/1
     bool move_performed;
     if (command == 'm') {
         move_performed = gamma_move(g, player, x, y);
@@ -36,7 +37,7 @@ static error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player
         move_performed = gamma_golden_move(g, player, x, y);
     }
     printf("%u\n", (unsigned)move_performed);
-    //    if (!move_performed) {  // TODO to do walidacji??
+    //    if (!move_performed) {  // TODO to do walidacji?
     //        return INVALID_VALUE;
     //    }
     return NO_ERROR;
