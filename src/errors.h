@@ -1,7 +1,7 @@
 /** @file
  * Plik zawierający typ reprezentujący błąd.
  *
- * @author Jakub Moliński <marpe@mimuw.edu.pl>
+ * @author Jakub Moliński <jm419502@students.mimuw.edu.pl>
  * @copyright Uniwersytet Warszawski
  * @date 26.04.2020
  */

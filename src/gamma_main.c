@@ -7,14 +7,11 @@
  */
 
 #include "batch_mode.h"
-#include "errno.h"
-#include "gamma.h"
 #include "interactive_mode.h"
 #include "text_input_handler.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <errno.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 /** Wszystkie identyfikatory dozwolonych trybów rozgrywki. */
 #define GAME_MODE_IDENTIFIERS "BI"
@@ -65,7 +62,6 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
  * Kod 1 oznacza błąd alokacji pamięci.
  */
 int main() {
-    // TODO przetestowanie jak dziala kiedy malloc sie gdzies wywali
     char mode;
     gamma_t *game = NULL;
     uint64_t line = 0;

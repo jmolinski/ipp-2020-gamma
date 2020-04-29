@@ -6,8 +6,7 @@
  * @date 24.04.2020
  */
 
-#include "errors.h"
-#include "gamma.h"
+#include "interactive_mode.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,7 +28,7 @@
 #define SET_ALTERNATIVE_BUFFER "\x1b[?1049h"
 /** ANSI escape code - przełączenie na glówny bufor terminala. */
 #define SET_NORMAL_BUFFER "\x1b[?1049l"
-/** ANSI escape code - zmiana kolorów na   */
+/** ANSI escape code - zmiana kolorów na białe tło, czarny tekst */
 #define INVERT_COLORS "\x1b[30;107m"
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
@@ -39,12 +38,12 @@ static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
     printf(CLEAR_SCREEN);
     printf(MOVE_CURSOR, 0, 0);
     const uint32_t board_width = gamma_board_width(g);
-    unsigned first_column_width, other_columnds_width;
-    gamma_rendered_fields_width(g, &first_column_width, &other_columnds_width);
+    unsigned first_column_width, other_columns_width;
+    gamma_rendered_fields_width(g, &first_column_width, &other_columns_width);
 
     for (int64_t y = gamma_board_height(g) - 1; y >= 0; y--) {
         for (uint32_t x = 0; x < board_width; x++) {
-            unsigned field_width = x == 0 ? first_column_width : other_columnds_width;
+            unsigned field_width = x == 0 ? first_column_width : other_columns_width;
             int written_chars;
             char buffer[15];
             gamma_render_field(g, buffer, x, y, field_width, &written_chars);
@@ -60,32 +59,14 @@ static error_t print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
         printf("\n");
     }
 
-    printf("Player %u\nFree fields %lu\nOccupied fields %lu\n", player,
-           gamma_free_fields(g, player), gamma_busy_fields(g, player));
+    printf("PLAYER %" PRIu32 " %" PRIu64 " %" PRIu64 " %c\n", player,
+           gamma_busy_fields(g, player), gamma_free_fields(g, player),
+           gamma_golden_possible(g, player) ? 'G' : ' ');
     if (error_message[0] != '\0') {
         printf("%s\n", error_message);
     }
 
     return NO_ERROR;
-}
-
-static void adjust_terminal_settings(struct termios *old, struct termios *new) {
-    tcgetattr(STDIN_FILENO, old);
-    *new = *old;
-
-    // ICANON - tryb obsługi wejścia (buforowanie, '\n', EOF).
-    // ECHO - wypisywanie naciśniętego klawisza na stdout.
-    new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, new);
-
-    // TODO pytanie: co z cleanupami przy erorrach typu SIGTERM?
-
-    printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
-}
-
-static void restore_terminal_settings(struct termios *old) {
-    tcsetattr(STDIN_FILENO, TCSANOW, old);
-    printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
 }
 
 void respond_to_arrow_key(gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
@@ -134,32 +115,6 @@ void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_
     } else if (key == 27) { // Jeden z klawiszy strzałek.
         ungetc(key, stdin);
         respond_to_arrow_key(game, field_x, field_y);
-    }
-}
-
-static inline void print_game_summary(gamma_t *g) {
-    char *rendered_board = gamma_board(g);
-    if (rendered_board != NULL) {
-        printf("\n%s\n", rendered_board);
-    }
-
-    uint32_t players_count = gamma_players_number(g);
-    uint32_t winner = 0;
-    uint64_t winner_points = 0;
-
-    for (uint64_t p = 1; p <= players_count; p++) {
-        uint64_t player_points = gamma_busy_fields(g, p);
-        if (player_points > winner_points) {
-            winner = p;
-            winner_points = gamma_busy_fields(g, p);
-        }
-        printf("Player %" PRIu64 " has %" PRIu64 " points.\n", p, player_points);
-    }
-
-    // TODO winner - co jeśli więcej niż 1 gracz wygrywa?
-    if (winner) {
-        printf("Winner: player %" PRIu32 " with %" PRIu64 " points.\n", winner,
-               winner_points);
     }
 }
 
@@ -212,6 +167,40 @@ static error_t run_io_loop(gamma_t *g) {
                 return NO_ERROR;
             }
         }
+    }
+}
+
+static void adjust_terminal_settings(struct termios *old, struct termios *new) {
+    tcgetattr(STDIN_FILENO, old);
+    *new = *old;
+
+    // ICANON - tryb obsługi wejścia (buforowanie, '\n', EOF).
+    // ECHO - wypisywanie naciśniętego klawisza na stdout.
+    new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, new);
+
+    // TODO pytanie: co z cleanupami przy erorrach typu SIGTERM?
+
+    printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
+}
+
+static void restore_terminal_settings(struct termios *old) {
+    tcsetattr(STDIN_FILENO, TCSANOW, old);
+    printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
+}
+
+static inline void print_game_summary(gamma_t *g) {
+    char *rendered_board = gamma_board(g);
+    if (rendered_board == NULL) {
+        return;
+    }
+    printf("\n%s\n", rendered_board);
+    free(rendered_board);
+
+    uint32_t players_count = gamma_players_number(g);
+    for (uint64_t p = 1; p <= players_count; p++) {
+        uint64_t player_points = gamma_busy_fields(g, p);
+        printf("PLAYER %" PRIu64 " %" PRIu64 "\n", p, player_points);
     }
 }
 

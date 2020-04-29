@@ -12,5 +12,8 @@ Tegoroczne duże zadanie polega na zaimplementowaniu gry gamma. Grę rozgrywa si
 Powyższy opis mechaniki i zasad gry pochodzi ze strony na [Moodle](https://moodle.mimuw.edu.pl/mod/assign/view.php?id=21495), jego autorem jest doktor Marcin Peczarski.
 
 Implementacja silnika gry znajduje się w pliku gamma.c, realizuje ona interfejs z pliku nagłówkowego gamma.h.
+Plik gamma_main.c zawiera funkcję main, która koordynuje tworzenie nowej rozgrywki w jednym z dotępnych trybów - w trybie wsadowym lub w trybie interaktywnym.
+Tryb interaktywny obsługiwany jest przez implementację znajdującą się w plikach interactive_mode.h oraz interactive_mode.c.
+Tryb wsadowy realizowany jest przez pliki batch_mode.h, batch_mode.c, oraz przez funkcje koordynujące wczytywanie danych ze standardowego wejścia znajdujące się w plikach text_input_handler.h, text_input_handler.c.
 
 */

@@ -13,7 +13,7 @@
 
 /** @brief Przeprowadza rozgrywkę w trybie wsadowym.
  * @param[in] g          – wskaźnik na strukturę danych gry,
- * @param[in,out] line   – wskaźnik na numer aktualnego wiersza,
+ * @param[in,out] line   – wskaźnik na numer aktualnego wiersza.
  */
 void run_batch_mode(gamma_t *g, uint64_t* line);
 
