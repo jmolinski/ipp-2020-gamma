@@ -304,7 +304,7 @@ static inline unsigned new_border_empty_fields(const gamma_t *g, int64_t x, int6
  */
 static inline void decrement_neighbors_border_empty_fields(gamma_t *g, int64_t x,
                                                            int64_t y) {
-    const unsigned neighbors_count = 4;
+    static const unsigned neighbors_count = 4;
     field_t *neighbors[] = {get_field(g, x + 1, y), get_field(g, x - 1, y),
                             get_field(g, x, y + 1), get_field(g, x, y - 1)};
     for (unsigned i = 0; i < neighbors_count; i++) {
@@ -340,7 +340,9 @@ static inline bool would_exceed_areas_limit(const gamma_t *g, uint32_t player,
 }
 
 bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
-    if (!gamma_game_move_arguments_valid(g, player, x, y)) {
+    if (g == NULL || player == 0 || player > g->players_num || x >= g->width ||
+        y >= g->height || !g->board[y][x].empty ||
+        would_exceed_areas_limit(g, player, x, y)) {
         return false;
     }
 
@@ -567,7 +569,7 @@ char *gamma_board(gamma_t *g) {
     gamma_rendered_fields_width(g, &min_first_column_width, &min_width);
     uint64_t written_fields = 0, allocated_space = 0, pos = 0;
     const uint64_t total_fields = g->width * g->height;
-    const unsigned min_buffer_size = 50;
+    static const uint64_t min_buffer_size = 150;
     char *str = NULL;
 
     for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
@@ -614,16 +616,4 @@ uint32_t gamma_board_width(const gamma_t *g) {
 
 uint32_t gamma_board_height(const gamma_t *g) {
     return g == NULL ? 0 : g->height;
-}
-
-bool gamma_game_move_arguments_valid(const gamma_t *g, uint32_t player, uint32_t x,
-                                     uint32_t y) {
-    return !(g == NULL || player == 0 || player > g->players_num || x >= g->width ||
-             y >= g->height || !g->board[y][x].empty ||
-             would_exceed_areas_limit(g, player, x, y));
-}
-
-bool gamma_game_golden_move_arguments_valid(const gamma_t *g, uint32_t player,
-                                            uint32_t x, uint32_t y) {
-    return !is_golden_move_impossible(g, player, x, y);
 }

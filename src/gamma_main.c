@@ -37,7 +37,8 @@ static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
             if (!gamma_game_new_arguments_valid(args[0], args[1], args[2], args[3])) {
                 error = INVALID_VALUE;
             }
-        } else {
+        }
+        if (error != NO_ERROR) {
             if (error == ENCOUNTERED_EOF) {
                 return ENCOUNTERED_EOF;
             }

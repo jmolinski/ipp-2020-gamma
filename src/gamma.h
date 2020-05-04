@@ -131,28 +131,6 @@ bool gamma_is_valid_player(const gamma_t *g, uint32_t player);
 bool gamma_game_new_arguments_valid(uint32_t width, uint32_t height, uint32_t players,
                                     uint32_t areas);
 
-/** @brief Weryfikuje parametry funkcji gamma_move.
- * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza,
- * @param[in] x       – numer kolumny,
- * @param[in] y       – numer wiersza.
- * @return Wartość logiczna @p true, jeżeli wartości parametrów są prawidłowe,
- * @p false w przeciwnym przypadku.
- */
-bool gamma_game_move_arguments_valid(const gamma_t *g, uint32_t player, uint32_t x,
-                                     uint32_t y);
-
-/** @brief Weryfikuje parametry funkcji gamma_golden_move.
- * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza,
- * @param[in] x       – numer kolumny,
- * @param[in] y       – numer wiersza.
- * @return Wartość logiczna @p true, jeżeli wartości parametrów są prawidłowe,
- * @p false w przeciwnym przypadku.
- */
-bool gamma_game_golden_move_arguments_valid(const gamma_t *g, uint32_t player,
-                                            uint32_t x, uint32_t y);
-
 /** @brief Zwraca liczbę graczy.
  * @param[in] g        – wskaźnik na strukturę przechowującą stan gry.
  * @return liczba graczy.
