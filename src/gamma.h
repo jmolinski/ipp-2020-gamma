@@ -162,8 +162,8 @@ uint32_t gamma_board_height(const gamma_t *g);
  * @return Kod @p NO_ERROR, jeżeli wszystko przebiegnie pomyślnie, w przeciwnym
  * przypadku kod @p INVALID_VALUE.
  */
-error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
-                           uint32_t field_width, int *written_characters);
+io_error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
+                              uint32_t field_width, int *written_characters);
 
 /**
  * @brief Zwraca informacje o szerokościach pól podczas wypisywania planszy.

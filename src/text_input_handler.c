@@ -19,9 +19,9 @@
  * @p INVALID_CHARACTER, jeżeli przed znakiem nowej linii napotkano znaki inne niż
  * znaki białe.
  */
-static inline error_t skip_until_next_line() {
+static inline io_error_t skip_until_next_line() {
     int ch;
-    error_t errcode = NO_ERROR;
+    io_error_t errcode = NO_ERROR;
 
     do {
         ch = getchar();
@@ -58,7 +58,7 @@ static inline void skip_white_characters() {
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
-static inline error_t read_uint32_digits(char *buffer) {
+static inline io_error_t read_uint32_digits(char *buffer) {
     int ch, i = 0;
     bool first_char_zero = false;
     do {
@@ -98,7 +98,7 @@ static inline error_t read_uint32_digits(char *buffer) {
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
-static inline error_t read_uint32(uint32_t *ptr) {
+static inline io_error_t read_uint32(uint32_t *ptr) {
     char buffer[13]; // Maksymalna długość uint32_t to 10 znaków.
     skip_white_characters();
     int error = read_uint32_digits(buffer);
@@ -124,7 +124,8 @@ static inline error_t read_uint32(uint32_t *ptr) {
  * @p LINE_IGNORED, jeżeli linijka zaczyna się od znaku #, lub @p INVALID_VALUE,
  * jeżeli wczytany znak nie jest poprawnym identyfikatorem komendy.
  */
-static inline error_t read_command_char(char *command, const char *allowed_commands) {
+static inline io_error_t read_command_char(char *command,
+                                           const char *allowed_commands) {
     int read_command = getchar();
     if (read_command == EOF) {
         return ENCOUNTERED_EOF;
@@ -159,8 +160,8 @@ static inline int get_command_arguments_count(char command) {
     return 0;
 }
 
-error_t read_next_command(char *command, uint32_t args[4],
-                          const char *allowed_commands) {
+io_error_t read_next_command(char *command, uint32_t args[4],
+                             const char *allowed_commands) {
     int error;
 
     if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {

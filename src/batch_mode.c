@@ -26,8 +26,8 @@
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p INVALID_VALUE,
  * jeżeli wartość któregoś z parametrów jest nieprawidłowa.
  */
-static error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player,
-                                       uint32_t x, uint32_t y) {
+static io_error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player,
+                                          uint32_t x, uint32_t y) {
     bool move_performed;
     if (command == 'm') {
         move_performed = gamma_move(g, player, x, y);
@@ -47,8 +47,8 @@ static error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p INVALID_VALUE,
  * jeżeli numer gracza jest nieprawidłowy.
  */
-static error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
-                                                       uint32_t player) {
+static io_error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
+                                                          uint32_t player) {
     if (!gamma_is_valid_player(g, player)) {
         return INVALID_VALUE;
     }
@@ -78,7 +78,7 @@ static error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
  * @p INVALID_VALUE, jeżeli któryś z argumentów jest nieprawidłowy,
  * @p MEMORY_ERROR, jeżeli nastąpił krytyczny błąd alokacji pamięci.
  */
-static error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
+static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     if (command == 'm' || command == 'g') {
         return run_move_or_golden_move(g, command, args[0], args[1], args[2]);
     } else if (command == 'b' || command == 'f' || command == 'q') {
@@ -99,7 +99,7 @@ void run_batch_mode(gamma_t *g, uint64_t *line) {
 
     char command;
     uint32_t args[3];
-    error_t error;
+    io_error_t error;
 
     do {
         (*line)++;

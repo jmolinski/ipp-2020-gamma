@@ -525,8 +525,8 @@ static unsigned get_uint_length(uint64_t value) {
     return l;
 }
 
-error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
-                           uint32_t field_width, int *written_characters) {
+io_error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
+                              uint32_t field_width, int *written_characters) {
     if (g->board[y][x].empty) {
         *written_characters = sprintf(str, "%*c", field_width, '.');
     } else {

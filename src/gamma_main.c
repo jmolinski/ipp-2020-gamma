@@ -27,8 +27,8 @@
  * @p ENCOUNTERED_EOF, jeżeli dane na wejściu się skończyły (EOF), @p MEMORY_ERROR,
  * jeżeli wystąpił błąd alokacji pamięci.
  */
-static error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
-    error_t error = NO_ERROR;
+static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
+    io_error_t error;
     uint32_t args[4];
     do {
         (*line)++;
@@ -67,11 +67,10 @@ int main() {
     gamma_t *game = NULL;
     uint64_t line = 0;
 
-    error_t error = create_game_struct(&game, &mode, &line);
+    io_error_t error = create_game_struct(&game, &mode, &line);
     if (error == MEMORY_ERROR) {
         return 1;
-    }
-    if (error == ENCOUNTERED_EOF) {
+    } else if (error == ENCOUNTERED_EOF) {
         return 0;
     }
 

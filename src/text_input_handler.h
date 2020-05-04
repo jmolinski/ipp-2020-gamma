@@ -9,9 +9,9 @@
 #ifndef TEXT_INPUT_HANDLER_H
 #define TEXT_INPUT_HANDLER_H
 
+#include "errors.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include "errors.h"
 
 /** @brief Wczytuje parametry następnej komendy.
  * @param[out] command         – wskaźnik na znak oznaczający typ komendy,
@@ -22,6 +22,7 @@
  * jeżeli wartości parametrów lub polecenie są niepoprawne, @p LINE_IGNORED,
  * jeżeli wiersz jest pusty lub zaczyna się znakiem #.
  */
-error_t read_next_command(char *command, uint32_t args[4], const char *allowed_commands);
+io_error_t read_next_command(char *command, uint32_t args[4],
+                             const char *allowed_commands);
 
 #endif /* TEXT_INPUT_HANDLER_H */
