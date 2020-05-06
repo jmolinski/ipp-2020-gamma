@@ -49,7 +49,7 @@ static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line)
     } while (error != NO_ERROR);
 
     (*game) = gamma_new(args[0], args[1], args[2], args[3]);
-    if (game == NULL) {
+    if (*game == NULL) {
         return MEMORY_ERROR;
     }
     return NO_ERROR;
