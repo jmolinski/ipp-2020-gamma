@@ -36,6 +36,11 @@ static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line)
         if (error == NO_ERROR) {
             if (!gamma_game_new_arguments_valid(args[0], args[1], args[2], args[3])) {
                 error = INVALID_VALUE;
+            } else {
+                *game = gamma_new(args[0], args[1], args[2], args[3]);
+                if (*game == NULL) {
+                    error = MEMORY_ERROR;
+                }
             }
         }
         if (error != NO_ERROR) {
@@ -48,10 +53,6 @@ static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line)
         }
     } while (error != NO_ERROR);
 
-    (*game) = gamma_new(args[0], args[1], args[2], args[3]);
-    if (*game == NULL) {
-        return MEMORY_ERROR;
-    }
     return NO_ERROR;
 }
 

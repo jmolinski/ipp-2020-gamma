@@ -14,7 +14,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-/** Kod ASCII 4, odpowiednik EOF przy wczytywaniu bez buforowania */
+/** Kod ASCII 4 wysyłany przy naciśnięciu klawiszy ctrl+d */
 #define END_OF_TRANSMISSION 4
 
 /** ANSI escape code - wyczyszczenie bufora terminala. */
@@ -89,7 +89,7 @@ static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t
  * @param[in,out] field_y     – wskaźnik na numer wiersza kursora.
  */
 void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
-    // Sekwencja oznaczająca strzałkę to 27 91 (65|66|67|68)
+    // Sekwencja oznaczająca strzałkę to 27 91 (65|66|67|68).
     int key;
     if ((key = getchar()) != 27) {
         ungetc(key, stdin);
@@ -221,8 +221,6 @@ static void adjust_terminal_settings(struct termios *old, struct termios *new) {
     // ECHO - wypisywanie naciśniętego klawisza na stdout.
     new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, new);
-
-    // TODO pytanie: co z cleanupami przy erorrach typu SIGTERM?
 
     printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
 }
