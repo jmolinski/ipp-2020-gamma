@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -255,6 +256,10 @@ static inline void print_game_summary(gamma_t *g) {
 
 void run_interactive_mode(gamma_t *g) {
     struct termios old_settings, new_settings;
+    // "Pusta" inicjacja wymagana, ponieważ valgrind przekazanie niezainicjowanej
+    // struktury do tcgetattr uważa za błąd (mimo, że jest to według dokumentacji
+    // poprawne - tcgetattr ustawia wartości pól na prawidłowe)
+    memset(&old_settings, 0, sizeof(struct termios));
     adjust_terminal_settings(&old_settings, &new_settings);
     run_io_loop(g);
     restore_terminal_settings(&old_settings);
