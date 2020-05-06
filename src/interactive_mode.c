@@ -33,6 +33,15 @@
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
 
+/** @brief Sprawdza czy otrzymany symbol oznacza koniec dostępnych danych.
+ * @param[in] c           – kod oznaczający znak lub EOF.
+ * @return @p true, jeżeli przekazany kod oznacza znak terminujący, @p false w
+ * przeciwnym przypadku.
+ */
+static inline bool is_terminating_symbol(int c) {
+    return c == END_OF_TRANSMISSION || c == EOF;
+}
+
 /** @brief Aktualizuje planszę na ekranie terminala.
  * Czyści aktualny bufor terminala i wypisuje aktualny stan planszy, wiersz
  * zachęcający gracza do dokonania ruchu, oraz ewentualny komunikat błędu.
@@ -42,8 +51,8 @@
  * @param[in] player          – numer gracza dokonującego ruch,
  * @param[out] error_message  – wskaźnik na bufor znakowy zawierający komunikat błędu.
  */
-static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
-                           uint32_t player, char *error_message) {
+static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t player,
+                        char *error_message) {
     printf(CLEAR_SCREEN);
     printf(MOVE_CURSOR, 0, 0);
     const uint32_t board_width = gamma_board_width(g);
@@ -181,7 +190,7 @@ static void run_io_loop(gamma_t *g) {
         print_board(g, field_x, field_y, current_player, error_message);
 
         int c = getchar();
-        if (c == END_OF_TRANSMISSION) { // ctrl+d
+        if (is_terminating_symbol(c)) {
             return;
         }
 
