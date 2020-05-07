@@ -35,6 +35,20 @@ set(SOURCE_FILES
 # Wskazujemy plik wykonywalny.
 add_executable(gamma ${SOURCE_FILES})
 
+set(TEST_SOURCE_FILES
+        src/gamma.c
+        src/gamma.h
+        src/gamma_test.c
+        src/interactive_mode.c
+        src/interactive_mode.h
+        src/text_input_handler.c
+        src/text_input_handler.h
+        src/batch_mode.c
+        src/batch_mode.h
+        src/errors.h)
+
+add_executable(gamma_test EXCLUDE_FROM_ALL ${TEST_SOURCE_FILES})
+
 # Dodajemy obsługę Doxygena: sprawdzamy, czy jest zainstalowany i jeśli tak to:
 find_package(Doxygen)
 if (DOXYGEN_FOUND)

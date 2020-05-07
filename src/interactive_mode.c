@@ -30,7 +30,7 @@
 /** ANSI escape code - przełączenie na glówny bufor terminala. */
 #define SET_NORMAL_BUFFER "\x1b[?1049l"
 /** ANSI escape code - zmiana kolorów na białe tło, czarny tekst */
-#define INVERT_COLORS "\x1b[30;107m"
+#define WHITE_BACKGROUND_BLACK_TEXT "\x1b[30;107m"
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
 
@@ -67,7 +67,7 @@ static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t
             char buffer[15];
             gamma_render_field(g, buffer, x, y, field_width, &written_chars);
             if (y == field_y && x == field_x) {
-                printf(INVERT_COLORS "%s" RESET_COLORS, buffer);
+                printf(WHITE_BACKGROUND_BLACK_TEXT "%s" RESET_COLORS, buffer);
             } else {
                 printf("%s", buffer);
             }
@@ -108,6 +108,8 @@ void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y
         *field_x = *field_x + 1 < gamma_board_width(g) ? *field_x + 1 : *field_x;
     } else if (key == 68) { // Strzałka w lewo.
         *field_x = *field_x > 0 ? *field_x - 1 : 0;
+    } else {
+        ungetc(key, stdin);
     }
 }
 
@@ -184,7 +186,7 @@ static inline bool advance_player_number(gamma_t *g, uint32_t *player) {
  */
 static void run_io_loop(gamma_t *g) {
     uint32_t field_x = 0, field_y = 0, current_player = 1;
-    char error_message[100];
+    static char error_message[100];
     error_message[0] = '\0';
 
     while (true) {
