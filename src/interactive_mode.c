@@ -210,17 +210,17 @@ static inline bool advance_player_number(gamma_t *g, uint32_t *player) {
 }
 
 /** @brief Wczytuje ruchy użytkownika, reaguje na nie i aktualizuje planszę.
- * @param[in,out] g          – wskaźnik na strukturę danych gry.
+ * @param[in,out] g           – wskaźnik na strukturę danych gry,
+ * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisywane będą
+ *                              zostać ewentualne komunikaty błędów.
  * @return Kod @p NO_ERROR jeżeli gra została zakończona poprawnie, @p ENCOUNTERED_EOF
  * jeżeli wejście zostało zamknięte przed poprawnym zakończeniem gry.
  */
-static io_error_t run_io_loop(gamma_t *g) {
+static io_error_t run_io_loop(gamma_t *g, char *error_message) {
     uint32_t field_x = 0, field_y = 0, current_player = 1;
-    static char error_message[100];
-    error_message[0] = '\0';
 
     while (true) {
-        print_board(g, field_x, field_y, current_player, error_message);
+        rerender_screen(g, field_x, field_y, current_player, error_message);
 
         int c = getchar();
         if (c == END_OF_TRANSMISSION) {
@@ -241,25 +241,42 @@ static io_error_t run_io_loop(gamma_t *g) {
     }
 }
 
-/** @brief Przeprowadza rozgrywkę w trybie wsadowym.
- * @param[out] new       – wskaźnik na strukturę, w której zapisane zostaną nowe
- *                         ustawienia termianala.
- * @param[out] old       – wskaźnik na strukturę, w której zapisane zostaną oryginalne
- *                         ustawienia termianala.
+/** @brief Dostosowuje ustawienia terminala do wymagań trybu interaktywnego.
+ * Jeżeli rozmiar okna terminala jest zbyt mały, aby poprawnie wyświetlić cały
+ * interfejs zapisuje do bufora komunikat ostrzeżenia.
+ * @param[out] old            – wskaźnik na strukturę, w której zapisane zostaną
+ *                              oryginalne ustawienia termianala,
+ * @param[out] new            – wskaźnik na strukturę, w której zapisane zostaną nowe
+ *                              ustawienia termianala,
+ * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany zostanie
+ *                              ewentualny komunikat błędu,
+ * @param[in] game            – wskaźnik na strukturę przechowującą stan gry.
  */
-static void adjust_terminal_settings(struct termios *old, struct termios *new) {
+static void adjust_terminal_settings(struct termios *old, struct termios *new,
+                                     char *error_message, const gamma_t *game) {
     tcgetattr(STDIN_FILENO, old);
     *new = *old;
 
-    // ICANON - tryb obsługi wejścia (buforowanie, '\n', EOF).
+    // ICANON - tryb obsługi wejścia (buforowanie),
     // ECHO - wypisywanie naciśniętego klawisza na stdout.
     new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, new);
 
     printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
+
+    struct winsize ws;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+    static unsigned const extra_rows_under_board = 4;
+    const unsigned board_field_width =
+        snprintf(NULL, 0, "%" PRIu32, gamma_players_number(game));
+    if (ws.ws_row < gamma_board_height(game) + extra_rows_under_board ||
+        ws.ws_col < gamma_board_width(game) * board_field_width) {
+        sprintf(error_message, "Terminal size is too small to display the "
+                               "whole board. Please resize the window.");
+    }
 }
 
-/** @brief Przeprowadza rozgrywkę w trybie wsadowym.
+/** @brief Przywraca terminal do pierwotnych ustawień.
  * @param[in] old          – wskaźnik na strukturę przechowującą oryginalne
  *                           ustawienia termianala.
  */
