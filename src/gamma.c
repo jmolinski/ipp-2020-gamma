@@ -526,11 +526,18 @@ static unsigned get_uint_length(uint64_t value) {
 }
 
 io_error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
-                              uint32_t field_width, int *written_characters) {
+                              uint32_t field_width, int *written_characters,
+                              uint32_t *player_number) {
     if (g->board[y][x].empty) {
         *written_characters = sprintf(str, "%*c", field_width, '.');
+        if (player_number != NULL) {
+            *player_number = 0;
+        }
     } else {
         *written_characters = sprintf(str, "%*u", field_width, g->board[y][x].player);
+        if (player_number != NULL) {
+            *player_number = g->board[y][x].player;
+        }
     }
     if (*written_characters < 0) {
         return INVALID_VALUE;
@@ -587,7 +594,7 @@ char *gamma_board(gamma_t *g) {
 
             unsigned field_width = x == 0 ? min_first_column_width : min_width;
             int written_chars;
-            gamma_render_field(g, &str[pos], x, y, field_width, &written_chars);
+            gamma_render_field(g, &str[pos], x, y, field_width, &written_chars, NULL);
             pos += (unsigned)written_chars;
         }
         str[pos++] = '\n';

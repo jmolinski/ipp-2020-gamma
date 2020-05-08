@@ -152,18 +152,24 @@ uint32_t gamma_board_height(const gamma_t *g);
 /**
  * @brief Renderuje pole do postaci łańcucha znaków.
  * Bufor tekstowy musi mieć odpowiednio dużo miejsca, aby pomieścić wszystkie znaki.
+ * Parametr @p player_number może mieć wartość NULL, jeżeli wołający nie potrzebuje
+ * informacji o numerze gracza.
  * @param[in] g                    - wskaźnik na strukturę przechowującą stan gry,
  * @param[in] str                  - wskaźnik na bufor tekstowy,
  * @param[in] x                    - kolumna,
  * @param[in] y                    - wiersz,
  * @param[in] field_width          - minimalna szerokość pola,
  * @param[out] written_characters  - wskaźnik na komórkę, do której zapisana zostanie
- *                                   informacja o liczbie zapisanych znaków.
+ *                                   informacja o liczbie zapisanych znaków,
+ * @param[out] player_number       - wskaźnik na komórkę, do której zapisany zostanie
+ *                                   numer gracza zajmującego polę, lub 0, jeżeli pole
+ *                                   jest puste.
  * @return Kod @p NO_ERROR, jeżeli wszystko przebiegnie pomyślnie, w przeciwnym
  * przypadku kod @p INVALID_VALUE.
  */
 io_error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
-                              uint32_t field_width, int *written_characters);
+                              uint32_t field_width, int *written_characters,
+                              uint32_t *player_number);
 
 /**
  * @brief Zwraca informacje o szerokościach pól podczas wypisywania planszy.

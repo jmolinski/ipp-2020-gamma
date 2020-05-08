@@ -17,6 +17,6 @@
  * @return Kod @p NO_ERROR jeżeli wszystko przebiegło poprawnie, @p MEMORY_ERROR jeżeli
  * nastąpił krytyczny błąd alokacji pamięci.
  */
-io_error_t run_batch_mode(gamma_t *g, uint64_t* line);
+io_error_t run_batch_mode(gamma_t *g, uint64_t *line);
 
 #endif /* BATCH_MODE_H */
