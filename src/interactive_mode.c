@@ -16,6 +16,10 @@
 
 /** Kod ASCII 4 wysyłany przy naciśnięciu klawiszy ctrl+d */
 #define END_OF_TRANSMISSION 4
+/** Kod ASCII 27 - znak escape */
+#define ESCAPE 27
+/** Kod ASCII 91 - znak otwierający nawias kwadratowy - [ */
+#define OPENING_SQUARE_BRACKET 91
 
 /** ANSI escape code - wyczyszczenie bufora terminala. */
 #define CLEAR_SCREEN "\x1b[2J"
@@ -34,15 +38,6 @@
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
 
-/** @brief Sprawdza czy otrzymany symbol oznacza koniec dostępnych danych.
- * @param[in] c           – kod oznaczający znak lub EOF.
- * @return @p true, jeżeli przekazany kod oznacza znak terminujący, @p false w
- * przeciwnym przypadku.
- */
-static inline bool is_terminating_symbol(int c) {
-    return c == END_OF_TRANSMISSION || c == EOF;
-}
-
 /** @brief Aktualizuje planszę na ekranie terminala.
  * Czyści aktualny bufor terminala i wypisuje aktualny stan planszy, wiersz
  * zachęcający gracza do dokonania ruchu, oraz ewentualny komunikat błędu.
@@ -56,13 +51,13 @@ static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t
                         char *error_message) {
     printf(CLEAR_SCREEN);
     printf(MOVE_CURSOR, 0, 0);
+    // Maksymalna szerokość pola to ceil(log10(2**32)) = 10
+    const int base_field_width = snprintf(NULL, 0, "%" PRIu32, gamma_players_number(g));
     const uint32_t board_width = gamma_board_width(g);
-    unsigned first_column_width, other_columns_width;
-    gamma_rendered_fields_width(g, &first_column_width, &other_columns_width);
 
     for (int64_t y = gamma_board_height(g) - 1; y >= 0; y--) {
         for (uint32_t x = 0; x < board_width; x++) {
-            unsigned field_width = x == 0 ? first_column_width : other_columns_width;
+            int field_width = base_field_width + (x == 0 ? 0 : 1);
             int written_chars;
             char buffer[15];
             gamma_render_field(g, buffer, x, y, field_width, &written_chars);
@@ -75,11 +70,14 @@ static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t
         printf("\n");
     }
 
-    printf("PLAYER %" PRIu32 " %" PRIu64 " %" PRIu64 " %c\n", player,
-           gamma_busy_fields(g, player), gamma_free_fields(g, player),
-           gamma_golden_possible(g, player) ? 'G' : ' ');
+    printf("\nPlayer %" PRIu32 "\n", player);
+    printf("Busy fields %" PRIu64 "\tFree fields %" PRIu64 "\n",
+           gamma_busy_fields(g, player), gamma_free_fields(g, player));
+    if (gamma_golden_possible(g, player)) {
+        printf("Golden move possible");
+    }
     if (error_message[0] != '\0') {
-        printf("%s\n", error_message);
+        printf("\n%s\n", error_message);
     }
 }
 
@@ -89,13 +87,13 @@ static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t
  * @param[in,out] field_y     – wskaźnik na numer wiersza kursora.
  */
 void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
-    // Sekwencja oznaczająca strzałkę to 27 91 (65|66|67|68).
+    // Sekwencja oznaczająca strzałkę to \escape [ 65|66|67|68.
     int key;
-    if ((key = getchar()) != 27) {
+    if ((key = getchar()) != ESCAPE) {
         ungetc(key, stdin);
         return;
     }
-    if ((key = getchar()) != 91) {
+    if ((key = getchar()) != OPENING_SQUARE_BRACKET) {
         ungetc(key, stdin);
         return;
     }
@@ -145,7 +143,7 @@ void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_
         } else {
             sprintf(error_message, "Can't make this golden move.");
         }
-    } else if (key == 27) { // Jeden z klawiszy strzałek.
+    } else if (key == ESCAPE) {
         ungetc(key, stdin);
         respond_to_arrow_key(game, field_x, field_y);
     }
@@ -183,8 +181,10 @@ static inline bool advance_player_number(gamma_t *g, uint32_t *player) {
 
 /** @brief Wczytuje ruchy użytkownika, reaguje na nie i aktualizuje planszę.
  * @param[in,out] g          – wskaźnik na strukturę danych gry.
+ * @return Kod @p NO_ERROR jeżeli gra została zakończona poprawnie, @p ENCOUNTERED_EOF
+ * jeżeli wejście zostało zamknięte przed poprawnym zakończeniem gry.
  */
-static void run_io_loop(gamma_t *g) {
+static io_error_t run_io_loop(gamma_t *g) {
     uint32_t field_x = 0, field_y = 0, current_player = 1;
     static char error_message[100];
     error_message[0] = '\0';
@@ -193,8 +193,10 @@ static void run_io_loop(gamma_t *g) {
         print_board(g, field_x, field_y, current_player, error_message);
 
         int c = getchar();
-        if (is_terminating_symbol(c)) {
-            return;
+        if (c == END_OF_TRANSMISSION) {
+            return NO_ERROR;
+        } else if (c == EOF) {
+            return ENCOUNTERED_EOF;
         }
 
         bool advance_player;
@@ -203,7 +205,7 @@ static void run_io_loop(gamma_t *g) {
         if (advance_player) {
             bool game_continues = advance_player_number(g, &current_player);
             if (!game_continues) {
-                return;
+                return NO_ERROR;
             }
         }
     }
@@ -236,7 +238,7 @@ static void restore_terminal_settings(struct termios *old) {
     printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
 }
 
-/** @brief Wyświetla planszę i statystyki graczy.
+/** @brief Wyświetla planszę, statystyki graczy oraz informację o zwycięzcy.
  * @param[in] g          – wskaźnik na strukturę danych gry.
  */
 static inline void print_game_summary(gamma_t *g) {
@@ -250,18 +252,42 @@ static inline void print_game_summary(gamma_t *g) {
     uint32_t players_count = gamma_players_number(g);
     for (uint64_t p = 1; p <= players_count; p++) {
         uint64_t player_points = gamma_busy_fields(g, p);
-        printf("PLAYER %" PRIu64 " %" PRIu64 "\n", p, player_points);
+        printf("Player %" PRIu64 ",\tbusy fields %" PRIu64 "\n", p, player_points);
+    }
+
+    uint32_t winner = 1;
+    uint64_t winner_fields = gamma_busy_fields(g, 1);
+    bool sole_winner = true;
+    for (uint64_t p = 2; p <= players_count; p++) {
+        uint32_t player_fields = gamma_busy_fields(g, p);
+        if (player_fields > winner_fields) {
+            winner = p;
+            winner_fields = player_fields;
+            sole_winner = true;
+        } else if (player_fields == winner_fields) {
+            sole_winner = false;
+        }
+    }
+
+    if (!sole_winner) {
+        printf("\nThe game ended in a tie.\n\n");
+    } else {
+        printf("\nPlayer %" PRIu32 " wins the game with %" PRIu64 " fields.\n\n",
+               winner, winner_fields);
     }
 }
 
-void run_interactive_mode(gamma_t *g) {
+io_error_t run_interactive_mode(gamma_t *g) {
     struct termios old_settings, new_settings;
     // "Pusta" inicjacja wymagana, ponieważ valgrind przekazanie niezainicjowanej
     // struktury do tcgetattr uważa za błąd (mimo, że jest to według dokumentacji
     // poprawne - tcgetattr ustawia wartości pól na prawidłowe)
     memset(&old_settings, 0, sizeof(struct termios));
     adjust_terminal_settings(&old_settings, &new_settings);
-    run_io_loop(g);
+    io_error_t error = run_io_loop(g);
     restore_terminal_settings(&old_settings);
-    print_game_summary(g);
+    if (error == NO_ERROR) {
+        print_game_summary(g);
+    }
+    return error;
 }

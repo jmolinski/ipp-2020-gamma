@@ -9,7 +9,6 @@
 #include "batch_mode.h"
 #include "interactive_mode.h"
 #include "text_input_handler.h"
-#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 
@@ -61,7 +60,8 @@ static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line)
  * lub w trybie interaktywnym. Zwalnia pamięć po zakończeniu rozgrywki.
  * @return Zero, gdy wszystko przebiegło poprawnie,
  * a w przeciwnym przypadku kod zakończenia programu jest kodem błędu.
- * Kod 1 oznacza błąd alokacji pamięci.
+ * Kod 1 oznacza krytyczny błąd - na przykład błąd alokacji pamięci, lub błąd
+ * wczytywania danych w trybie intraktywnym.
  */
 int main() {
     char mode;
@@ -76,14 +76,14 @@ int main() {
     }
 
     if (mode == 'B') {
-        run_batch_mode(game, &line);
+        error = run_batch_mode(game, &line);
     } else {
-        run_interactive_mode(game);
+        error = run_interactive_mode(game);
     }
 
     gamma_delete(game);
 
-    if (errno == ENOMEM) {
+    if (error != NO_ERROR) {
         return 1;
     }
 

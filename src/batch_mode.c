@@ -94,7 +94,7 @@ static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     }
 }
 
-void run_batch_mode(gamma_t *g, uint64_t *line) {
+io_error_t run_batch_mode(gamma_t *g, uint64_t *line) {
     printf("OK %" PRIu64 "\n", *line); // Gra rozpoczęta prawidłowo.
 
     char command;
@@ -107,8 +107,8 @@ void run_batch_mode(gamma_t *g, uint64_t *line) {
         if (error == NO_ERROR) {
             error = run_command(g, command, args);
             if (error != NO_ERROR) {
-                if (errno == ENOMEM) {
-                    return;
+                if (error == MEMORY_ERROR) {
+                    return MEMORY_ERROR;
                 } else {
                     fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
                 }
@@ -117,4 +117,6 @@ void run_batch_mode(gamma_t *g, uint64_t *line) {
             fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
         }
     } while (error != ENCOUNTERED_EOF);
+
+    return NO_ERROR;
 }
