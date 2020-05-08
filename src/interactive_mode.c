@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -33,25 +34,30 @@
 #define SET_ALTERNATIVE_BUFFER "\x1b[?1049h"
 /** ANSI escape code - przełączenie na glówny bufor terminala. */
 #define SET_NORMAL_BUFFER "\x1b[?1049l"
-/** ANSI escape code - zmiana kolorów na białe tło, czarny tekst */
-#define WHITE_BACKGROUND_BLACK_TEXT "\x1b[30;107m"
 /** ANSI escape code - przywrócenie domyślnych kolorów */
 #define RESET_COLORS "\x1b[m"
+/** ANSI escape code - zmiana koloru tła na biały */
+#define WHITE_BACKGROUND "\x1b[107m"
+/** ANSI escape code - zmiana koloru tła na zielony */
+#define GREEN_BACKGROUND "\x1b[42m"
+/** ANSI escape code - zmiana koloru tekstu na żółty */
+#define YELLOW_TEXT "\x1b[38;5;226m"
+/** ANSI escape code - zmiana koloru tekstu na złoty */
+#define GOLDEN_TEXT "\x1b[38;5;178m"
+/** ANSI escape code - zmiana koloru tekstu na czerwony */
+#define RED_TEXT "\x1b[31m"
+/** ANSI escape code - zmiana koloru tekstu na czarny tekst */
+#define BLACK_TEXT "\x1b[30m"
 
-/** @brief Aktualizuje planszę na ekranie terminala.
- * Czyści aktualny bufor terminala i wypisuje aktualny stan planszy, wiersz
- * zachęcający gracza do dokonania ruchu, oraz ewentualny komunikat błędu.
+/** @brief Wypisuje aktualny stan planszy.
  * @param[in,out] g           – wskaźnik na strukturę danych gry,
  * @param[in] field_x         – numer kolumny kursora,
  * @param[in] field_y         – numer wiersza kursora,
- * @param[in] player          – numer gracza dokonującego ruch,
- * @param[out] error_message  – wskaźnik na bufor znakowy zawierający komunikat błędu.
+ * @param[in] player          – numer gracza dokonującego ruch.
  */
-static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t player,
-                        char *error_message) {
-    printf(CLEAR_SCREEN);
-    printf(MOVE_CURSOR, 0, 0);
-    // Maksymalna szerokość pola to ceil(log10(2**32)) = 10
+static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
+                        uint32_t player) {
+    // Maksymalna szerokość pola to ceil(log10(UINT32_MAX)) = 10
     const int base_field_width = snprintf(NULL, 0, "%" PRIu32, gamma_players_number(g));
     const uint32_t board_width = gamma_board_width(g);
 
@@ -60,24 +66,48 @@ static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y, uint32_t
             int field_width = base_field_width + (x == 0 ? 0 : 1);
             int written_chars;
             char buffer[15];
-            gamma_render_field(g, buffer, x, y, field_width, &written_chars);
+            uint32_t player_number;
+            gamma_render_field(g, buffer, x, y, field_width, &written_chars,
+                               &player_number);
             if (y == field_y && x == field_x) {
-                printf(WHITE_BACKGROUND_BLACK_TEXT "%s" RESET_COLORS, buffer);
+                printf(WHITE_BACKGROUND BLACK_TEXT "%s" RESET_COLORS, buffer);
+            } else if (player_number == player) {
+                printf(GREEN_BACKGROUND BLACK_TEXT "%s" RESET_COLORS, buffer);
+            } else if (player_number == 0) {
+                printf(YELLOW_TEXT "%s" RESET_COLORS, buffer);
             } else {
                 printf("%s", buffer);
             }
         }
         printf("\n");
     }
+}
 
-    printf("\nPlayer %" PRIu32 "\n", player);
+/** @brief Aktualizuje planszę i wyświetlane informacje na ekranie terminala.
+ * Czyści aktualny bufor terminala i wypisuje aktualny stan planszy, wiersz
+ * zachęcający gracza do dokonania ruchu, oraz ewentualny komunikat błędu.
+ * @param[in,out] g           – wskaźnik na strukturę danych gry,
+ * @param[in] field_x         – numer kolumny kursora,
+ * @param[in] field_y         – numer wiersza kursora,
+ * @param[in] player          – numer gracza dokonującego ruch,
+ * @param[out] error_message  – wskaźnik na bufor znakowy zawierający komunikat błędu.
+ */
+static void rerender_screen(gamma_t *g, uint32_t field_x, uint32_t field_y,
+                            uint32_t player, char *error_message) {
+    printf(CLEAR_SCREEN);
+    printf(MOVE_CURSOR, 0, 0);
+
+    print_board(g, field_x, field_y, player);
+
+    printf("\nPlayer " GREEN_BACKGROUND BLACK_TEXT "%" PRIu32 RESET_COLORS "\n",
+           player);
     printf("Busy fields %" PRIu64 "\tFree fields %" PRIu64 "\n",
            gamma_busy_fields(g, player), gamma_free_fields(g, player));
     if (gamma_golden_possible(g, player)) {
-        printf("Golden move possible");
+        printf(GOLDEN_TEXT "Golden move possible" RESET_COLORS);
     }
     if (error_message[0] != '\0') {
-        printf("\n%s\n", error_message);
+        printf(RED_TEXT "\n%s\n" RESET_COLORS, error_message);
     }
 }
 
