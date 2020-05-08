@@ -99,8 +99,7 @@ static void rerender_screen(gamma_t *g, uint32_t field_x, uint32_t field_y,
 
     print_board(g, field_x, field_y, player);
 
-    printf("\nPlayer " GREEN_BACKGROUND BLACK_TEXT "%" PRIu32 RESET_COLORS "\n",
-           player);
+    printf("\nPlayer %" PRIu32 "\n", player);
     printf("Busy fields %" PRIu64 "\tFree fields %" PRIu64 "\n",
            gamma_busy_fields(g, player), gamma_free_fields(g, player));
     if (gamma_golden_possible(g, player)) {
