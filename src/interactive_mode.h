@@ -14,7 +14,8 @@
 /** @brief Przeprowadza rozgrywkę w trybie interaktywnym.
  * @param[in] g      – wskaźnik na strukturę danych gry.
  * @return Kod @p NO_ERROR jeżeli wszystko przebiegło poprawnie, @p ENCOUNTERED_EOF
- * jeżeli wejście zostało zamknięte przed poprawnym zakończeniem gry.
+ * jeżeli wejście zostało zamknięte przed poprawnym zakończeniem gry, @p MEMORY_ERROR,
+ * jeżeli wystąpił błąd alokacji pamięci.
  */
 io_error_t run_interactive_mode(gamma_t *g);
 

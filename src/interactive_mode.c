@@ -285,22 +285,11 @@ static void restore_terminal_settings(struct termios *old) {
     printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
 }
 
-/** @brief Wyświetla planszę, statystyki graczy oraz informację o zwycięzcy.
+/** @brief Wyświetla informację o zwycięzcy gry lub o remisie.
  * @param[in] g          – wskaźnik na strukturę danych gry.
  */
-static inline void print_game_summary(gamma_t *g) {
-    char *rendered_board = gamma_board(g);
-    if (rendered_board == NULL) {
-        return;
-    }
-    printf("\n%s\n", rendered_board);
-    free(rendered_board);
-
+static inline void print_game_winner(gamma_t *g) {
     uint32_t players_count = gamma_players_number(g);
-    for (uint64_t p = 1; p <= players_count; p++) {
-        uint64_t player_points = gamma_busy_fields(g, p);
-        printf("Player %" PRIu64 ",\tbusy fields %" PRIu64 "\n", p, player_points);
-    }
 
     uint32_t winner = 1;
     uint64_t winner_fields = gamma_busy_fields(g, 1);
@@ -324,17 +313,43 @@ static inline void print_game_summary(gamma_t *g) {
     }
 }
 
+/** @brief Wyświetla planszę, statystyki graczy oraz informację o zwycięzcy.
+ * @param[in] g          – wskaźnik na strukturę danych gry.
+ * @return Kod @p MEMORY_ERROR, jeżeli wystąpił błąd alokacji pamięci, @p NO_ERROR
+ * w przeciwnym przypadku.
+ */
+static inline io_error_t print_game_summary(gamma_t *g) {
+    char *rendered_board = gamma_board(g);
+    if (rendered_board == NULL) {
+        return MEMORY_ERROR;
+    }
+    printf("\n%s\n", rendered_board);
+    free(rendered_board);
+
+    uint32_t players_count = gamma_players_number(g);
+    for (uint64_t p = 1; p <= players_count; p++) {
+        uint64_t player_points = gamma_busy_fields(g, p);
+        printf("Player %" PRIu64 ",\tbusy fields %" PRIu64 "\n", p, player_points);
+    }
+
+    print_game_winner(g);
+    return NO_ERROR;
+}
+
 io_error_t run_interactive_mode(gamma_t *g) {
     struct termios old_settings, new_settings;
     // "Pusta" inicjacja wymagana, ponieważ valgrind przekazanie niezainicjowanej
     // struktury do tcgetattr uważa za błąd (mimo, że jest to według dokumentacji
     // poprawne - tcgetattr ustawia wartości pól na prawidłowe)
     memset(&old_settings, 0, sizeof(struct termios));
-    adjust_terminal_settings(&old_settings, &new_settings);
-    io_error_t error = run_io_loop(g);
+    static char error_message[100];
+    error_message[0] = '\0';
+
+    adjust_terminal_settings(&old_settings, &new_settings, error_message, g);
+    io_error_t error = run_io_loop(g, error_message);
     restore_terminal_settings(&old_settings);
     if (error == NO_ERROR) {
-        print_game_summary(g);
+        error = print_game_summary(g);
     }
     return error;
 }
