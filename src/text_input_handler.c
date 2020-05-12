@@ -160,15 +160,25 @@ static inline int get_command_arguments_count(char command) {
     return 0;
 }
 
-io_error_t read_next_command(char *command, uint32_t args[4],
-                             const char *allowed_commands) {
-    int error;
-
-    if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {
-        return error;
+/** @brief Wczytuje argumenty komendy.
+ * @param[in] command    – znak identyfikujący komendę,
+ * @param[out] args      – wskaźnik na tablicę argumentów (co najmniej 4 pola).
+ * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
+ * jeżeli dane wejściowe kończą się przed wczytaniem wszystkich argumentów,
+ * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
+ */
+io_error_t read_arguments(char command, uint32_t args[4]) {
+    int arguments_count = get_command_arguments_count(command);
+    if (arguments_count) {
+        int ch = getchar();
+        if (!isspace(ch) || ch == '\n') {
+            ungetc(ch, stdin);
+            skip_until_next_line();
+            return INVALID_VALUE;
+        }
     }
 
-    int arguments_count = get_command_arguments_count(*command);
+    io_error_t error;
     for (int i = 0; i < arguments_count; i++) {
         if ((error = read_uint32(&args[i])) != NO_ERROR) {
             if (error == ENCOUNTERED_EOF) {
@@ -180,6 +190,18 @@ io_error_t read_next_command(char *command, uint32_t args[4],
         }
     }
 
+    return NO_ERROR;
+}
+
+io_error_t read_next_command(char *command, uint32_t args[4],
+                             const char *allowed_commands) {
+    io_error_t error;
+    if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {
+        return error;
+    }
+    if ((error = read_arguments(*command, args)) != NO_ERROR) {
+        return error;
+    }
     if ((error = skip_until_next_line()) != NO_ERROR) {
         return error;
     }

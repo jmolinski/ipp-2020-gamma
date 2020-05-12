@@ -75,8 +75,9 @@ int main() {
         return 0;
     }
 
+    error = NO_ERROR;
     if (mode == 'B') {
-        error = run_batch_mode(game, &line);
+        run_batch_mode(game, &line);
     } else {
         error = run_interactive_mode(game);
     }

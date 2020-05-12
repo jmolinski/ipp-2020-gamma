@@ -8,7 +8,6 @@
 
 #include "gamma.h"
 #include "text_input_handler.h"
-#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,16 +52,16 @@ static io_error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char comma
         return INVALID_VALUE;
     }
 
-    uint32_t result;
+    uint64_t result;
     if (command == 'b') {
         result = gamma_busy_fields(g, player);
     } else if (command == 'f') {
         result = gamma_free_fields(g, player);
     } else /* command == 'q' */ {
-        result = (uint32_t)gamma_golden_possible(g, player);
+        result = (uint64_t)gamma_golden_possible(g, player);
     }
 
-    printf("%" PRIu32 "\n", result);
+    printf("%" PRIu64 "\n", result);
     return NO_ERROR;
 }
 
@@ -75,8 +74,8 @@ static io_error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char comma
  * @param[in] args        – argumenty komendy.
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
- * @p INVALID_VALUE, jeżeli któryś z argumentów jest nieprawidłowy,
- * @p MEMORY_ERROR, jeżeli nastąpił krytyczny błąd alokacji pamięci.
+ * @p INVALID_VALUE, jeżeli któryś z argumentów jest nieprawidłowy lub operacja się
+ * niepowiedzie, jednak błąd jest niekrytyczny.
  */
 static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     if (command == 'm' || command == 'g') {
@@ -86,15 +85,17 @@ static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     } else {
         char *rendered_board = gamma_board(g);
         if (rendered_board == NULL) {
-            return MEMORY_ERROR;
+            return INVALID_VALUE;
+        } else {
+            printf("%s", rendered_board);
+            free(rendered_board);
         }
-        printf("%s", rendered_board);
-        free(rendered_board);
-        return NO_ERROR;
     }
+
+    return NO_ERROR;
 }
 
-io_error_t run_batch_mode(gamma_t *g, uint64_t *line) {
+void run_batch_mode(gamma_t *g, uint64_t *line) {
     printf("OK %" PRIu64 "\n", *line); // Gra rozpoczęta prawidłowo.
 
     char command;
@@ -107,16 +108,10 @@ io_error_t run_batch_mode(gamma_t *g, uint64_t *line) {
         if (error == NO_ERROR) {
             error = run_command(g, command, args);
             if (error != NO_ERROR) {
-                if (error == MEMORY_ERROR) {
-                    return MEMORY_ERROR;
-                } else {
-                    fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
-                }
+                fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
             }
         } else if (error == INVALID_VALUE) {
             fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
         }
     } while (error != ENCOUNTERED_EOF);
-
-    return NO_ERROR;
 }

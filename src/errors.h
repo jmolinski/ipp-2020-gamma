@@ -17,7 +17,8 @@ typedef enum errors {
     INVALID_VALUE,
     NO_ERROR,
     LINE_IGNORED,
-    MEMORY_ERROR
+    MEMORY_ERROR,
+    TERMINAL_ERROR,
 } io_error_t;
 
 #endif // GAMMA_ERRORS_H

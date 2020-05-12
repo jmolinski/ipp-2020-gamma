@@ -6,6 +6,7 @@
  * @date 24.04.2020
  */
 
+#define _GNU_SOURCE
 #include "interactive_mode.h"
 #include <inttypes.h>
 #include <stdio.h>
@@ -240,31 +241,22 @@ static io_error_t run_io_loop(gamma_t *g, char *error_message) {
     }
 }
 
-/** @brief Dostosowuje ustawienia terminala do wymagań trybu interaktywnego.
+/** @brief Ustawia komunikat błędu jeżeli okno terminala jest zbyt małe.
  * Jeżeli rozmiar okna terminala jest zbyt mały, aby poprawnie wyświetlić cały
  * interfejs zapisuje do bufora komunikat ostrzeżenia.
- * @param[out] old            – wskaźnik na strukturę, w której zapisane zostaną
- *                              oryginalne ustawienia termianala,
- * @param[out] new            – wskaźnik na strukturę, w której zapisane zostaną nowe
- *                              ustawienia termianala,
  * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany zostanie
  *                              ewentualny komunikat błędu,
  * @param[in] game            – wskaźnik na strukturę przechowującą stan gry.
+ * Kod @p NO_ERROR operacja została wykonana pomyślnie, @p TERMINAL_ERROR
+ * jeżeli wywołanie systemowe zakończyło się błędem.
  */
-static void adjust_terminal_settings(struct termios *old, struct termios *new,
-                                     char *error_message, const gamma_t *game) {
-    tcgetattr(STDIN_FILENO, old);
-    *new = *old;
-
-    // ICANON - tryb obsługi wejścia (buforowanie),
-    // ECHO - wypisywanie naciśniętego klawisza na stdout.
-    new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, new);
-
-    printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
-
+static inline io_error_t check_if_terminal_window_is_big_enough(char *error_message,
+                                                                const gamma_t *game) {
     struct winsize ws;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+    int error = ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
+    if (error != 0) {
+        return TERMINAL_ERROR;
+    }
     static unsigned const extra_rows_under_board = 4;
     const unsigned board_field_width =
         snprintf(NULL, 0, "%" PRIu32, gamma_players_number(game));
@@ -273,15 +265,70 @@ static void adjust_terminal_settings(struct termios *old, struct termios *new,
         sprintf(error_message, "Terminal size is too small to display the "
                                "whole board. Please resize the window.");
     }
+
+    return NO_ERROR;
+}
+
+/** @brief Dostosowuje ustawienia terminala do wymagań trybu interaktywnego.
+ * Jeżeli rozmiar okna terminala jest zbyt mały, aby poprawnie wyświetlić cały
+ * interfejs zapisuje do bufora komunikat ostrzeżenia.
+ * Jeżeli stdin nie jest podłączony do interaktywnego terminala, struktury old i new
+ * nie zostaną uzupełnione danymi.
+ * @param[out] old            – wskaźnik na strukturę, w której zapisane zostaną
+ *                              oryginalne ustawienia termianala,
+ * @param[out] new            – wskaźnik na strukturę, w której zapisane zostaną nowe
+ *                              ustawienia termianala,
+ * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany zostanie
+ *                              ewentualny komunikat błędu,
+ * @param[in] game            – wskaźnik na strukturę przechowującą stan gry.
+ * Kod @p NO_ERROR operacja została wykonana pomyślnie, @p TERMINAL_ERROR
+ * jeżeli wywołanie systemowe zakończyło się błędem.
+ */
+static io_error_t adjust_terminal_settings(struct termios *old, struct termios *new,
+                                           char *error_message, const gamma_t *game) {
+    bool is_interactive_terminal = isatty(fileno(stdin)) == 1;
+    if (is_interactive_terminal) {
+        int error = tcgetattr(STDIN_FILENO, old);
+        if (error != 0) {
+            return TERMINAL_ERROR;
+        }
+        *new = *old;
+
+        new->c_lflag &= ~((uint32_t)ICANON | (uint32_t)ECHO);
+        error = tcsetattr(STDIN_FILENO, TCSANOW, new);
+        if (error != 0) {
+            return TERMINAL_ERROR;
+        }
+    }
+
+    printf(SET_ALTERNATIVE_BUFFER CLEAR_SCREEN HIDE_CURSOR);
+
+    if (is_interactive_terminal) {
+        return check_if_terminal_window_is_big_enough(error_message, game);
+    }
+
+    return NO_ERROR;
 }
 
 /** @brief Przywraca terminal do pierwotnych ustawień.
+ * Jeżeli stdin nie jest podłączony do interaktywnego terminala, funkcja nie zmienia
+ * ustawień terminala.
  * @param[in] old          – wskaźnik na strukturę przechowującą oryginalne
  *                           ustawienia termianala.
+ * Kod @p NO_ERROR operacja została wykonana pomyślnie, @p TERMINAL_ERROR
+ * jeżeli wywołanie systemowe zakończyło się błędem.
  */
-static void restore_terminal_settings(struct termios *old) {
-    tcsetattr(STDIN_FILENO, TCSANOW, old);
+static inline io_error_t restore_terminal_settings(struct termios *old) {
+    bool is_interactive_terminal = isatty(fileno(stdin)) == 1;
+    if (is_interactive_terminal) {
+        int error = tcsetattr(STDIN_FILENO, TCSANOW, old);
+        if (error != 0) {
+            return TERMINAL_ERROR;
+        }
+    }
+
     printf(CLEAR_SCREEN SET_NORMAL_BUFFER SHOW_CURSOR);
+    return NO_ERROR;
 }
 
 /** @brief Wyświetla informację o zwycięzcy gry lub o remisie.
@@ -344,11 +391,18 @@ io_error_t run_interactive_mode(gamma_t *g) {
     static char error_message[100];
     error_message[0] = '\0';
 
-    adjust_terminal_settings(&old_settings, &new_settings, error_message, g);
-    io_error_t error = run_io_loop(g, error_message);
-    restore_terminal_settings(&old_settings);
+    // TODO ogarniecie tego?
+
+    io_error_t error =
+        adjust_terminal_settings(&old_settings, &new_settings, error_message, g);
     if (error == NO_ERROR) {
+        error = run_io_loop(g, error_message);
+    }
+    io_error_t cleanup_error = restore_terminal_settings(&old_settings);
+    if (error == NO_ERROR && cleanup_error == NO_ERROR) {
         error = print_game_summary(g);
+    } else {
+        return TERMINAL_ERROR;
     }
     return error;
 }
