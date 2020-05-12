@@ -99,7 +99,7 @@ void run_batch_mode(gamma_t *g, uint64_t *line) {
     printf("OK %" PRIu64 "\n", *line); // Gra rozpoczęta prawidłowo.
 
     char command;
-    uint32_t args[3];
+    uint32_t args[4];
     io_error_t error;
 
     do {

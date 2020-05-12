@@ -6,6 +6,7 @@
  * @date 24.04.2020
  */
 
+/** _GNU_SOURCE - wymagane, aby stdio.h definiowało funkcję fileno */
 #define _GNU_SOURCE
 #include "interactive_mode.h"
 #include <inttypes.h>
