@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define COMMAND_ARGUMENTS_UPPER_BOUND 4
+
 /** @brief Wczytuje parametry następnej komendy.
  * @param[out] command         – wskaźnik na znak oznaczający typ komendy,
  * @param[out] args            – wskaźnik na tablicę argumentów (co najmniej 4 pola),
@@ -22,7 +24,8 @@
  * jeżeli wartości parametrów lub polecenie są niepoprawne, @p LINE_IGNORED,
  * jeżeli wiersz jest pusty lub zaczyna się znakiem #.
  */
-io_error_t read_next_command(char *command, uint32_t args[4],
+io_error_t read_next_command(char *command,
+                             uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND],
                              const char *allowed_commands);
 
 #endif /* TEXT_INPUT_HANDLER_H */

@@ -13,6 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/** Ograniczenie górne długości znakowej reprezentacji liczby typu uint32_t
+ * 13 > ceil(log10(UINT32_MAX)) = 10 */
+#define UINT32_LENGTH_UPPER_BOUND 13
+
 /** @brief Pomija znaki z stdin aż do znaku końca linii (włącznie).
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
@@ -59,7 +63,9 @@ static inline void skip_white_characters() {
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
 static inline io_error_t read_uint32_digits(char *buffer) {
-    int ch, i = 0;
+    static const unsigned max_digits = 11;
+    int ch;
+    unsigned i = 0;
     bool first_char_zero = false;
     do {
         ch = getchar();
@@ -76,7 +82,7 @@ static inline io_error_t read_uint32_digits(char *buffer) {
         } else {
             buffer[i++] = (char)ch;
         }
-        if (i > 11) {
+        if (i > max_digits) {
             return INVALID_VALUE;
         }
     } while (isdigit(ch));
@@ -99,7 +105,7 @@ static inline io_error_t read_uint32_digits(char *buffer) {
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
 static inline io_error_t read_uint32(uint32_t *ptr) {
-    char buffer[13]; // Maksymalna długość uint32_t to 10 znaków.
+    char buffer[UINT32_LENGTH_UPPER_BOUND];
     skip_white_characters();
     int error = read_uint32_digits(buffer);
     if (error != NO_ERROR) {
@@ -127,29 +133,29 @@ static inline io_error_t read_uint32(uint32_t *ptr) {
 static inline io_error_t read_command_char(char *command,
                                            const char *allowed_commands) {
     int read_command = getchar();
-    if (read_command == EOF) {
+    switch (read_command) {
+    case EOF:
         return ENCOUNTERED_EOF;
-    }
-    if (read_command == '\n') {
+    case '\n':
         return LINE_IGNORED;
-    }
-    if (read_command == '#') {
+    case '#':
         skip_until_next_line();
         return LINE_IGNORED;
+    default:
+        if (strchr(allowed_commands, read_command) == NULL) {
+            skip_until_next_line();
+            return INVALID_VALUE;
+        }
+        *command = (char)read_command;
+        return NO_ERROR;
     }
-    if (strchr(allowed_commands, read_command) == NULL) {
-        skip_until_next_line();
-        return INVALID_VALUE;
-    }
-    *command = (char)read_command;
-    return NO_ERROR;
 }
 
 /** @brief Zwraca liczbę parametrów przyjmowanych przez komendę.
  * @param[in] command   – znak identyfikujący komendę.
  * @return liczba parametrów przyjmowanych przez komendę.
  */
-static inline int get_command_arguments_count(char command) {
+static inline unsigned get_command_arguments_count(char command) {
     if (command == 'B' || command == 'I') {
         return 4;
     } else if (command == 'g' || command == 'm') {
@@ -167,8 +173,9 @@ static inline int get_command_arguments_count(char command) {
  * jeżeli dane wejściowe kończą się przed wczytaniem wszystkich argumentów,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
-io_error_t read_arguments(char command, uint32_t args[4]) {
-    int arguments_count = get_command_arguments_count(command);
+static io_error_t read_arguments(char command,
+                                 uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND]) {
+    unsigned arguments_count = get_command_arguments_count(command);
     if (arguments_count) {
         int ch = getchar();
         if (!isspace(ch) || ch == '\n') {
@@ -179,7 +186,7 @@ io_error_t read_arguments(char command, uint32_t args[4]) {
     }
 
     io_error_t error;
-    for (int i = 0; i < arguments_count; i++) {
+    for (unsigned i = 0; i < arguments_count; i++) {
         if ((error = read_uint32(&args[i])) != NO_ERROR) {
             if (error == ENCOUNTERED_EOF) {
                 return ENCOUNTERED_EOF;
@@ -193,7 +200,8 @@ io_error_t read_arguments(char command, uint32_t args[4]) {
     return NO_ERROR;
 }
 
-io_error_t read_next_command(char *command, uint32_t args[4],
+io_error_t read_next_command(char *command,
+                             uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND],
                              const char *allowed_commands) {
     io_error_t error;
     if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {
