@@ -15,6 +15,6 @@
  * @param[in] g          – wskaźnik na strukturę danych gry,
  * @param[in,out] line   – wskaźnik na numer aktualnego wiersza.
  */
-void run_batch_mode(gamma_t *g, uint64_t *line);
+void run_batch_mode(gamma_t *g, unsigned long *line);
 
 #endif /* BATCH_MODE_H */

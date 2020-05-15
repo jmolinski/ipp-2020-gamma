@@ -26,9 +26,9 @@
  * @p ENCOUNTERED_EOF, jeżeli dane na wejściu się skończyły (EOF), @p MEMORY_ERROR,
  * jeżeli wystąpił błąd alokacji pamięci.
  */
-static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line) {
+static io_error_t create_game_struct(gamma_t **game, char *mode, unsigned long *line) {
     io_error_t error;
-    uint32_t args[4];
+    uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND];
     do {
         (*line)++;
         error = read_next_command(mode, args, GAME_MODE_IDENTIFIERS);
@@ -47,7 +47,7 @@ static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line)
                 return ENCOUNTERED_EOF;
             }
             if (error != LINE_IGNORED) {
-                fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
+                fprintf(stderr, "ERROR %lu\n", *line);
             }
         }
     } while (error != NO_ERROR);
@@ -61,12 +61,12 @@ static io_error_t create_game_struct(gamma_t **game, char *mode, uint64_t *line)
  * @return Zero, gdy wszystko przebiegło poprawnie,
  * a w przeciwnym przypadku kod zakończenia programu jest kodem błędu.
  * Kod 1 oznacza krytyczny błąd - na przykład błąd alokacji pamięci, lub błąd
- * wczytywania danych w trybie intraktywnym.
+ * wczytywania danych w trybie interaktywnym.
  */
 int main() {
     char mode;
     gamma_t *game = NULL;
-    uint64_t line = 0;
+    unsigned long line = 0;
 
     io_error_t error = create_game_struct(&game, &mode, &line);
     if (error == MEMORY_ERROR) {

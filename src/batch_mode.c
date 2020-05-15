@@ -16,8 +16,8 @@
 #define BATCH_COMMAND_IDENTIFIERS "mgbfqp"
 
 /** @brief Wykonuje gamma_move lub gamma_golden_move.
- * Weryfikuje poprawność przekazanych argumenów i wykonuje zadaną komendę.
- * @param[in,out] g       – wskaźnik na strukturę przechowującą stan grym
+ * Weryfikuje poprawność przekazanych argumentów i wykonuje zadaną komendę.
+ * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] command     – znak oznaczający typ komendy (m lub g),
  * @param[in] player      – numer gracza,
  * @param[in] x           – numer kolumny,
@@ -39,8 +39,8 @@ static io_error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t pla
 }
 
 /** @brief Wykonuje gamma_free_fields, gamma_busy_fields lub gamma_golden_possible.
- * Weryfikuje poprawność przekazanych argumenów i wykonuje zadaną komendę.
- * @param[in,out] g       – wskaźnik na strukturę przechowującą stan grym
+ * Weryfikuje poprawność przekazanych argumentów i wykonuje zadaną komendę.
+ * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] command     – znak oznaczający typ komendy, (b, f lub q),
  * @param[in] player      – numer identyfikujący gracza.
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p INVALID_VALUE,
@@ -69,13 +69,13 @@ static io_error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char comma
  * Poza argumentem @p command identyfikującym typ komendy przyjmuje 3 argumenty.
  * Jeżeli dana komenda przyjmuje mniej niż 3 argumenty, dodatkowe argumenty nie są
  * używane.
- * @param[in,out] g       – wskaźnik na strukturę przechowującą stan grym
+ * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] command     – znak oznaczający typ komendy, (m, g, f, b, q lub p),
  * @param[in] args        – argumenty komendy.
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli któryś z argumentów jest nieprawidłowy lub operacja się
- * niepowiedzie, jednak błąd jest niekrytyczny.
+ * nie powiedzie, jednak błąd jest niekrytyczny.
  */
 static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     if (command == 'm' || command == 'g') {
@@ -95,11 +95,11 @@ static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     return NO_ERROR;
 }
 
-void run_batch_mode(gamma_t *g, uint64_t *line) {
-    printf("OK %" PRIu64 "\n", *line); // Gra rozpoczęta prawidłowo.
+void run_batch_mode(gamma_t *g, unsigned long *line) {
+    printf("OK %lu\n", *line); // Gra rozpoczęta prawidłowo.
 
     char command;
-    uint32_t args[4];
+    uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND];
     io_error_t error;
 
     do {
@@ -108,10 +108,10 @@ void run_batch_mode(gamma_t *g, uint64_t *line) {
         if (error == NO_ERROR) {
             error = run_command(g, command, args);
             if (error != NO_ERROR) {
-                fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
+                fprintf(stderr, "ERROR %lu\n", *line);
             }
         } else if (error == INVALID_VALUE) {
-            fprintf(stderr, "ERROR %" PRIu64 "\n", *line);
+            fprintf(stderr, "ERROR %lu\n", *line);
         }
     } while (error != ENCOUNTERED_EOF);
 }

@@ -2,6 +2,7 @@
  * Interfejs klasy przechowującej stan gry gamma
  *
  * @author Marcin Peczarski <marpe@mimuw.edu.pl>
+ * @author Jakub Moliński <jm419502@students.mimuw.edu.pl>
  * @copyright Uniwersytet Warszawski
  * @date 18.03.2020
  */
@@ -56,7 +57,7 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y);
  * Ustawia pionek gracza @p player na polu (@p x, @p y) zajętym przez innego
  * gracza, usuwając pionek innego gracza.
  * @param[in,out] g   – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
+ * @param[in] player  – numer gracza, liczba dodatnia nie większa od wartości
  *                      @p players z funkcji @ref gamma_new,
  * @param[in] x       – numer kolumny, liczba nieujemna mniejsza od wartości
  *                      @p width z funkcji @ref gamma_new,
@@ -71,7 +72,7 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y);
 /** @brief Podaje liczbę pól zajętych przez gracza.
  * Podaje liczbę pól zajętych przez gracza @p player.
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
+ * @param[in] player  – numer gracza, liczba dodatnia nie większa od wartości
  *                      @p players z funkcji @ref gamma_new.
  * @return Liczba pól zajętych przez gracza lub zero,
  * jeśli któryś z parametrów jest niepoprawny.
@@ -82,7 +83,7 @@ uint64_t gamma_busy_fields(gamma_t *g, uint32_t player);
  * Podaje liczbę wolnych pól, na których w danym stanie gry gracz @p player może
  * postawić swój pionek w następnym ruchu.
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
+ * @param[in] player  – numer gracza, liczba dodatnia nie większa od wartości
  *                      @p players z funkcji @ref gamma_new.
  * @return Liczba pól, jakie jeszcze może zająć gracz lub zero,
  * jeśli któryś z parametrów jest niepoprawny.
@@ -93,7 +94,7 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player);
  * Sprawdza, czy gracz @p player jeszcze nie wykonał w tej rozgrywce złotego
  * ruchu i jest przynajmniej jedno pole zajęte przez innego gracza.
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
- * @param[in] player  – numer gracza, liczba dodatnia niewiększa od wartości
+ * @param[in] player  – numer gracza, liczba dodatnia nie większa od wartości
  *                      @p players z funkcji @ref gamma_new.
  * @return Wartość @p true, jeśli gracz jeszcze nie wykonał w tej rozgrywce
  * złotego ruchu i jest przynajmniej jedno pole zajęte przez innego gracza,
@@ -164,23 +165,11 @@ uint32_t gamma_board_height(const gamma_t *g);
  * @param[out] player_number       - wskaźnik na komórkę, do której zapisany zostanie
  *                                   numer gracza zajmującego polę, lub 0, jeżeli pole
  *                                   jest puste.
- * @return Kod @p NO_ERROR, jeżeli wszystko przebiegnie pomyślnie, w przeciwnym
+ * @return Kod @p NO_ERROR, jeżeli wszystko przebiegło pomyślnie, w przeciwnym
  * przypadku kod @p INVALID_VALUE.
  */
 io_error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t y,
                               uint32_t field_width, int *written_characters,
                               uint32_t *player_number);
-
-/**
- * @brief Zwraca informacje o szerokościach pól podczas wypisywania planszy.
- * Wskaźnik @p g musi wskazywać na prawidłowo zainicjowaną strukturę gry.
- * @param[in] g                    - wskaźnik na strukturę przechowującą stan gry,
- * @param[out] first_column_width  - wskaźnik na komórkę, do której zapisana zostanie
- *                                   szerokość pola z pierwszej kolumny,
- * @param[out] field_width         - wskaźnik na komórkę, do której zapisana zostanie
- *                                   szerokość pola z kolumn innych niż pierwsza.
- */
-void gamma_rendered_fields_width(const gamma_t *g, unsigned *first_column_width,
-                                 unsigned *field_width);
 
 #endif /* GAMMA_H */

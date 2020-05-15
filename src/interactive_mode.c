@@ -8,6 +8,7 @@
 
 /** _GNU_SOURCE - wymagane, aby stdio.h definiowało funkcję fileno */
 #define _GNU_SOURCE
+
 #include "interactive_mode.h"
 #include <inttypes.h>
 #include <stdio.h>
@@ -23,6 +24,13 @@
 #define ESCAPE 27
 /** Kod ASCII 91 - znak otwierający nawias kwadratowy - [ */
 #define OPENING_SQUARE_BRACKET 91
+
+typedef enum arrow_key_sequence_last_character {
+    ARROW_UP = 65,
+    ARROW_DOWN = 66,
+    ARROW_RIGHT = 67,
+    ARROW_LEFT = 68,
+} arrow_key_sequence_last_character;
 
 /** ANSI escape code - wyczyszczenie bufora terminala. */
 #define CLEAR_SCREEN "\x1b[2J"
@@ -51,23 +59,26 @@
 /** ANSI escape code - zmiana koloru tekstu na czarny tekst */
 #define BLACK_TEXT "\x1b[30m"
 
+/** Ograniczenie górne długości znakowej reprezentacji jednego pola
+ * 15 > ceil(log10(UINT32_MAX)) = 10 */
+#define FIELD_WIDTH_UPPER_BOUND 15
+
 /** @brief Wypisuje aktualny stan planszy.
  * @param[in,out] g           – wskaźnik na strukturę danych gry,
  * @param[in] field_x         – numer kolumny kursora,
  * @param[in] field_y         – numer wiersza kursora,
  * @param[in] player          – numer gracza dokonującego ruch.
  */
-static void print_board(gamma_t *g, uint32_t field_x, uint32_t field_y,
+static void board_print(gamma_t *g, uint32_t field_x, uint32_t field_y,
                         uint32_t player) {
-    // Maksymalna szerokość pola to ceil(log10(UINT32_MAX)) = 10
     const int base_field_width = snprintf(NULL, 0, "%" PRIu32, gamma_players_number(g));
     const uint32_t board_width = gamma_board_width(g);
 
-    for (int64_t y = gamma_board_height(g) - 1; y >= 0; y--) {
+    for (uint32_t y = gamma_board_height(g); y-- > 0;) {
         for (uint32_t x = 0; x < board_width; x++) {
             int field_width = base_field_width + (x == 0 ? 0 : 1);
             int written_chars;
-            char buffer[15];
+            char buffer[FIELD_WIDTH_UPPER_BOUND];
             uint32_t player_number;
             gamma_render_field(g, buffer, x, y, field_width, &written_chars,
                                &player_number);
@@ -99,7 +110,7 @@ static void rerender_screen(gamma_t *g, uint32_t field_x, uint32_t field_y,
     printf(CLEAR_SCREEN);
     printf(MOVE_CURSOR, 0, 0);
 
-    print_board(g, field_x, field_y, player);
+    board_print(g, field_x, field_y, player);
 
     printf("\nPlayer %" PRIu32 "\n", player);
     printf("Busy fields %" PRIu64 "\tFree fields %" PRIu64 "\n",
@@ -113,12 +124,15 @@ static void rerender_screen(gamma_t *g, uint32_t field_x, uint32_t field_y,
 }
 
 /** @brief Przesuwa kursor na podstawie wciśniętego klawisza strzałki.
+ * Jeżeli niemożliwe jest wczytanie pełnej sekwencji strzałki, początkowe znaki zostaną
+ * zignorowane.
  * @param[in] g               – wskaźnik na strukturę danych gry,
  * @param[in,out] field_x     – wskaźnik na numer kolumny kursora,
  * @param[in,out] field_y     – wskaźnik na numer wiersza kursora.
  */
-void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y) {
-    // Sekwencja oznaczająca strzałkę to \escape [ 65|66|67|68.
+static inline void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x,
+                                        uint32_t *field_y) {
+    // Sekwencja strzałki to 3 znaki ESC [ ARROW_UP|ARROW_DOWN|ARROW_RIGHT|ARROW_LEFT
     int key;
     if ((key = getchar()) != ESCAPE) {
         ungetc(key, stdin);
@@ -129,13 +143,13 @@ void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y
         return;
     }
     key = getchar();
-    if (key == 65) { // Strzałka w górę
+    if (key == ARROW_UP) {
         *field_y = *field_y + 1 < gamma_board_height(g) ? *field_y + 1 : *field_y;
-    } else if (key == 66) { // Strzałka w dół.
+    } else if (key == ARROW_DOWN) {
         *field_y = *field_y > 0 ? *field_y - 1 : 0;
-    } else if (key == 67) { // Strzałka w prawo.
+    } else if (key == ARROW_RIGHT) {
         *field_x = *field_x + 1 < gamma_board_width(g) ? *field_x + 1 : *field_x;
-    } else if (key == 68) { // Strzałka w lewo.
+    } else if (key == ARROW_LEFT) {
         *field_x = *field_x > 0 ? *field_x - 1 : 0;
     } else {
         ungetc(key, stdin);
@@ -152,10 +166,12 @@ void respond_to_arrow_key(const gamma_t *g, uint32_t *field_x, uint32_t *field_y
  * @param[out] advance_player – wskaźnik na wartość logiczną oznaczającą, czy należy
  *                              przesunąć kolejkę na następnego gracza,
  * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany może
- *                              zostać ewentualny kod błędu.
+ *                              zostać ewentualny kod błędu; bufor musi być odpowiednio
+ *                              duży, aby pomieścić cały komunikat.
  */
-void respond_to_key(char key, gamma_t *game, uint32_t *field_x, uint32_t *field_y,
-                    uint32_t player, bool *advance_player, char *error_message) {
+static void respond_to_key(char key, gamma_t *game, uint32_t *field_x,
+                           uint32_t *field_y, uint32_t player, bool *advance_player,
+                           char *error_message) {
     *advance_player = false;
     error_message[0] = '\0';
     if (key == ' ') {
@@ -276,9 +292,9 @@ static inline io_error_t check_if_terminal_window_is_big_enough(char *error_mess
  * Jeżeli stdin nie jest podłączony do interaktywnego terminala, struktury old i new
  * nie zostaną uzupełnione danymi.
  * @param[out] old            – wskaźnik na strukturę, w której zapisane zostaną
- *                              oryginalne ustawienia termianala,
+ *                              oryginalne ustawienia terminala,
  * @param[out] new            – wskaźnik na strukturę, w której zapisane zostaną nowe
- *                              ustawienia termianala,
+ *                              ustawienia terminala,
  * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany zostanie
  *                              ewentualny komunikat błędu,
  * @param[in] game            – wskaźnik na strukturę przechowującą stan gry.
@@ -315,7 +331,7 @@ static io_error_t adjust_terminal_settings(struct termios *old, struct termios *
  * Jeżeli stdin nie jest podłączony do interaktywnego terminala, funkcja nie zmienia
  * ustawień terminala.
  * @param[in] old          – wskaźnik na strukturę przechowującą oryginalne
- *                           ustawienia termianala.
+ *                           ustawienia terminala.
  * Kod @p NO_ERROR operacja została wykonana pomyślnie, @p TERMINAL_ERROR
  * jeżeli wywołanie systemowe zakończyło się błędem.
  */
@@ -341,7 +357,7 @@ static inline void print_game_winner(gamma_t *g) {
     uint32_t winner = 1;
     uint64_t winner_fields = gamma_busy_fields(g, 1);
     bool sole_winner = true;
-    for (uint64_t p = 2; p <= players_count; p++) {
+    for (uint32_t p = 1; p++ < players_count;) {
         uint32_t player_fields = gamma_busy_fields(g, p);
         if (player_fields > winner_fields) {
             winner = p;
@@ -374,9 +390,9 @@ static inline io_error_t print_game_summary(gamma_t *g) {
     free(rendered_board);
 
     uint32_t players_count = gamma_players_number(g);
-    for (uint64_t p = 1; p <= players_count; p++) {
+    for (uint32_t p = 0; p++ < players_count;) {
         uint64_t player_points = gamma_busy_fields(g, p);
-        printf("Player %" PRIu64 ",\tbusy fields %" PRIu64 "\n", p, player_points);
+        printf("Player %" PRIu32 ",\tbusy fields %" PRIu64 "\n", p, player_points);
     }
 
     print_game_winner(g);
@@ -385,14 +401,9 @@ static inline io_error_t print_game_summary(gamma_t *g) {
 
 io_error_t run_interactive_mode(gamma_t *g) {
     struct termios old_settings, new_settings;
-    // "Pusta" inicjacja wymagana, ponieważ valgrind przekazanie niezainicjowanej
-    // struktury do tcgetattr uważa za błąd (mimo, że jest to według dokumentacji
-    // poprawne - tcgetattr ustawia wartości pól na prawidłowe)
     memset(&old_settings, 0, sizeof(struct termios));
     static char error_message[100];
     error_message[0] = '\0';
-
-    // TODO ogarniecie tego?
 
     io_error_t error =
         adjust_terminal_settings(&old_settings, &new_settings, error_message, g);

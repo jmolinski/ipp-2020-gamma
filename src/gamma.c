@@ -49,10 +49,10 @@ struct gamma {
 };
 
 /** @brief Operacja find (find-union) na planszy gry.
- * Zwraca najstarszego rodzica (lidera) należacego do danego obszaru na planszy.
+ * Zwraca najstarszego rodzica (lidera) należącego do danego obszaru na planszy.
  * (Operacja na strukturze danych find-union).
  * Funkcja stosuje metodę path-halving skracania ścieżki do najstarszego rodzica.
- * Złożoność O(a(n)) gdzie a to odwrotna funcja Ackermanna [efektywnie O(1)].
+ * Złożoność O(a(n)) gdzie a to odwrotna funkcja Ackermanna [efektywnie O(1)].
  * @param[in,out] field    – wskaźnik na dowolne pole należące do planszy.
  * @return Wskaźnik na jednoznacznie wyznaczonego przedstawiciela danego obszaru
  * (find-union).
@@ -70,7 +70,7 @@ static inline field_t *fu_find(field_t *field) {
  * Łączy dwa rozłączne obszary na planszy. (Operacja na strukturze danych find-union).
  * Funkcja stosuje metodę union by rank do wyznaczania nowego lidera po połączeniu
  * dwóch obszarów.
- * Złożoność O(a(n)) gdzie a to odwrotna funcja Ackermanna [efektywnie O(1)].
+ * Złożoność O(a(n)) gdzie a to odwrotna funkcja Ackermanna [efektywnie O(1)].
  * @param[in,out] x    – wskaźnik na dowolne pole należące do planszy,
  * @param[in,out] y    – wskaźnik na dowolne pole należące do planszy.
  * @return Wartość logiczna @p false jeżeli pola należały już do tego samego obszaru,
@@ -102,8 +102,8 @@ static inline bool fu_union(field_t *x, field_t *y) {
  * Alokuje planszę o zadanych wymiarach składającą się z pustych pól.
  * Złożoność O(height*width).
  * @param[in] width       – szerokość planszy,
- * @param[in] height      – wysokoć planszy.
- * @return Wskaźnik na planszę lub @p NULL jesli nie udało się zaalokować pamięci.
+ * @param[in] height      – wysokość planszy.
+ * @return Wskaźnik na planszę lub @p NULL jeśli nie udało się zaalokować pamięci.
  */
 static field_t **allocate_board(uint32_t width, uint32_t height) {
     field_t **board = malloc(height * sizeof(field_t *));
@@ -188,7 +188,7 @@ void gamma_delete(gamma_t *g) {
  * @param[in] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] x       – numer kolumny,
  * @param[in] y       – numer wiersza.
- * @return Wartość @p true, jeśli pole nalezy do planszy, a @p false
+ * @return Wartość @p true, jeśli pole należy do planszy, a @p false
  * w przeciwnym przypadku.
  */
 static inline bool is_within_board(const gamma_t *g, int64_t x, int64_t y) {
@@ -201,7 +201,7 @@ static inline bool is_within_board(const gamma_t *g, int64_t x, int64_t y) {
  * @param[in] x       – numer kolumny,
  * @param[in] y       – numer wiersza,
  * @param[in] player  – numer gracza.
- * @return Wartość @p true, jeśli pole nalezy do gracza, a @p false
+ * @return Wartość @p true, jeśli pole należy do gracza, a @p false
  * w przeciwnym przypadku lub jeśli pole nie należy do planszy.
  */
 static inline bool belongs_to_player(const gamma_t *g, int64_t x, int64_t y,
@@ -240,7 +240,7 @@ static inline field_t *get_field(const gamma_t *g, int64_t x, int64_t y) {
 }
 
 /** @brief Łączy (union z find-union) pole z sąsiednimi obszarami tego samego gracza.
- * Wykonuje operację union na danym polu i na wszystkich sąsiadujacych z nim polami
+ * Wykonuje operację union na danym polu i na wszystkich sąsiadujących z nim polami
  * należącymi do tego samego gracza co zadane pole.
  * Złożoność O(1).
  * @param[in,out] g     – wskaźnik na strukturę przechowującą stan gry,
@@ -294,7 +294,7 @@ static inline unsigned new_border_empty_fields(const gamma_t *g, int64_t x, int6
     return new_nearby_empty_fields;
 }
 
-/** @brief Dekrementuje liczbę pustych pól graniczacych z obszarami każdego z sąsiadów.
+/** @brief Dekrementuje liczbę pustych pól graniczących z obszarami każdego z sąsiadów.
  * Dla każdego gracza, który posiada pole graniczące z polem o zadanych koordynatach
  * dekrementuje liczbę pustych miejsc graniczących z obszarami tego gracza.
  * Złożoność O(1).
@@ -364,13 +364,13 @@ bool gamma_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
 
 /**
  * @brief Ustawia metadane struktury danych find-union na wartości wyjściowe.
- * Ustawia wartosci field.parent oraz field.rank na wartości wyjściowe oraz resetuje
+ * Ustawia wartości field.parent oraz field.rank na wartości wyjściowe oraz resetuje
  * liczbę obszarów gracza.
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry.
  */
 static inline void reset_find_union_metadata(gamma_t *g) {
-    for (int64_t row = 0; row < g->height; row++) {
-        for (int64_t column = 0; column < g->width; column++) {
+    for (uint32_t row = 0; row < g->height; row++) {
+        for (uint32_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
                 continue;
             }
@@ -383,9 +383,9 @@ static inline void reset_find_union_metadata(gamma_t *g) {
 }
 
 /**
- * @brief Na nowo tworzy strukture find-union obszarów.
- * Na nowo tworzy strukture find-union obszarów i dla każdego gracza aktualizuje
- * liczbe posiadanych obszarów.
+ * @brief Na nowo tworzy strukturę find-union obszarów.
+ * Na nowo tworzy strukturę find-union obszarów i dla każdego gracza aktualizuje
+ * liczbę posiadanych obszarów.
  * Złożoność O(height*width) + O(players_num)
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry.
  * @return Wartość @p true, jeżeli po zakończeniu każdy z graczy ma nie więcej niż
@@ -399,8 +399,8 @@ static bool reindex_areas(gamma_t *g) {
     reset_find_union_metadata(g);
 
     // Utwórz na nowo sety find-union.
-    for (int64_t row = 0; row < g->height; row++) {
-        for (int64_t column = 0; column < g->width; column++) {
+    for (uint32_t row = 0; row < g->height; row++) {
+        for (uint32_t column = 0; column < g->width; column++) {
             if (g->board[row][column].empty) {
                 continue;
             }
@@ -545,10 +545,19 @@ io_error_t gamma_render_field(const gamma_t *g, char *str, uint32_t x, uint32_t 
     return NO_ERROR;
 }
 
+/**
+ * @brief Zwraca informacje o szerokościach pól podczas wypisywania planszy.
+ * Wskaźnik @p g musi wskazywać na prawidłowo zainicjowaną strukturę gry.
+ * @param[in] g                    - wskaźnik na strukturę przechowującą stan gry,
+ * @param[out] first_column_width  - wskaźnik na komórkę, do której zapisana zostanie
+ *                                   szerokość pola z pierwszej kolumny,
+ * @param[out] field_width         - wskaźnik na komórkę, do której zapisana zostanie
+ *                                   szerokość pola z kolumn innych niż pierwsza.
+ */
 void gamma_rendered_fields_width(const gamma_t *g, unsigned *first_column_width,
                                  unsigned *field_width) {
-    uint64_t max_player = 1; // Najmniejszy numer gracza to 1.
-    for (uint64_t p = 1; p <= g->players_num; p++) {
+    uint32_t max_player = 1; // Najmniejszy numer gracza to 1.
+    for (uint32_t p = 0; p++ < g->players_num;) {
         if (g->players[p % g->players_num].occupied_fields > 0 && p > max_player) {
             max_player = p;
         }
@@ -558,8 +567,8 @@ void gamma_rendered_fields_width(const gamma_t *g, unsigned *first_column_width,
     // gracz nie sklejał się z poprzednim.
     *field_width = min_width == 1 ? 1 : min_width + 1;
 
-    uint64_t max_player_first_column = 1;
-    for (uint64_t r = 0; r < g->height; r++) {
+    uint32_t max_player_first_column = 1;
+    for (uint32_t r = 0; r < g->height; r++) {
         if (!g->board[r][0].empty && g->board[r][0].player > max_player_first_column) {
             max_player_first_column = g->board[r][0].player;
         }
@@ -579,8 +588,8 @@ char *gamma_board(gamma_t *g) {
     static const uint64_t min_buffer_size = 150;
     char *str = NULL;
 
-    for (int64_t y = g->height - 1; y >= 0; y--, written_fields++) {
-        for (uint32_t x = 0; x < g->width; x++) {
+    for (uint32_t y = g->height; y-- > 0;) {
+        for (uint32_t x = 0; x < g->width; x++, written_fields++) {
             if ((allocated_space - pos) < min_buffer_size) {
                 uint64_t left_fields = total_fields - written_fields;
                 uint64_t extra_chars = left_fields * min_width + y + min_buffer_size;
