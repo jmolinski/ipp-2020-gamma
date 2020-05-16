@@ -234,7 +234,9 @@ static inline bool advance_player_number(gamma_t *g, uint32_t *player) {
  * jeżeli wejście zostało zamknięte przed poprawnym zakończeniem gry.
  */
 static io_error_t run_io_loop(gamma_t *g, char *error_message) {
-    uint32_t field_x = 0, field_y = 0, current_player = 1;
+    uint32_t field_x = (gamma_board_width(g) - 1) / 2,
+             field_y = (gamma_board_height(g) - 1) / 2;
+    uint32_t current_player = 1;
 
     while (true) {
         rerender_screen(g, field_x, field_y, current_player, error_message);
