@@ -207,11 +207,11 @@ io_error_t read_next_command(char *command,
     if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {
         return error;
     }
-    if ((error = read_arguments(*command, args)) != NO_ERROR) {
-        return error;
+    if (read_arguments(*command, args) != NO_ERROR) {
+        return INVALID_VALUE;
     }
-    if ((error = skip_until_next_line()) != NO_ERROR) {
-        return error;
+    if (skip_until_next_line() != NO_ERROR) {
+        return INVALID_VALUE;
     }
 
     return NO_ERROR;

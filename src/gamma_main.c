@@ -1,5 +1,5 @@
 /** @file
- * Plik zawiera główną pętlę koordynującą przebieg gry.
+ * Plik zawiera logikę koordynującą rozpoczęcie i zakończenie rozgrywki w grze gamma.
  *
  * @author Jakub Moliński <jm419502@students.mimuw.edu.pl>
  * @copyright Uniwersytet Warszawski

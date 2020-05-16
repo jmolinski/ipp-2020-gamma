@@ -43,15 +43,9 @@ static io_error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t pla
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] command     – znak oznaczający typ komendy, (b, f lub q),
  * @param[in] player      – numer identyfikujący gracza.
- * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p INVALID_VALUE,
- * jeżeli numer gracza jest nieprawidłowy.
  */
-static io_error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
-                                                          uint32_t player) {
-    if (!gamma_is_valid_player(g, player)) {
-        return INVALID_VALUE;
-    }
-
+static void run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
+                                                    uint32_t player) {
     uint64_t result;
     if (command == 'b') {
         result = gamma_busy_fields(g, player);
@@ -62,7 +56,6 @@ static io_error_t run_busy_free_fields_or_golden_possible(gamma_t *g, char comma
     }
 
     printf("%" PRIu64 "\n", result);
-    return NO_ERROR;
 }
 
 /** @brief Wykonuje zadane polecenie.
@@ -81,7 +74,8 @@ static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     if (command == 'm' || command == 'g') {
         return run_move_or_golden_move(g, command, args[0], args[1], args[2]);
     } else if (command == 'b' || command == 'f' || command == 'q') {
-        return run_busy_free_fields_or_golden_possible(g, command, args[0]);
+        run_busy_free_fields_or_golden_possible(g, command, args[0]);
+        return NO_ERROR;
     } else {
         char *rendered_board = gamma_board(g);
         if (rendered_board == NULL) {
