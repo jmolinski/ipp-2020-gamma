@@ -197,6 +197,9 @@ static void respond_to_key(char key, gamma_t *game, uint32_t *field_x,
 }
 
 /** @brief Wyznacza następnego w kolejności gracza, który może dokonać ruchu.
+ * Przesuwa kolejkę na następnego w kolejności gracza, który może dokonać ruchu.
+ * Jeżeli żaden gracz nie może dokonać ruchu zwraca wartość @p false, a wartość
+ * wskaźnika jest niezdefiniowana.
  * @param[in] g             – wskaźnik na strukturę danych gry,
  * @param[in,out] player    – wskaźnik na numer aktualnego gracza, który zostanie
  *                            zaktualizowany.
@@ -227,6 +230,8 @@ static inline bool advance_player_number(gamma_t *g, uint32_t *player) {
 }
 
 /** @brief Wczytuje ruchy użytkownika, reaguje na nie i aktualizuje planszę.
+ * Funkcja kończy się gdy zakończą się dane na wejściu, napotkany zostanie symbol
+ * kończący rozgrywkę, lub gdy żaden z graczy nie może wykonać już ruchu.
  * @param[in,out] g           – wskaźnik na strukturę danych gry,
  * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisywane będą
  *                              zostać ewentualne komunikaty błędów.
@@ -401,7 +406,7 @@ static inline io_error_t print_game_summary(gamma_t *g) {
     return NO_ERROR;
 }
 
-io_error_t run_interactive_mode(gamma_t *g) {
+io_error_t interactive_run_mode(gamma_t *g) {
     struct termios old_settings, new_settings;
     memset(&old_settings, 0, sizeof(struct termios));
     static char error_message[100];

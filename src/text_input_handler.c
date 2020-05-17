@@ -62,7 +62,7 @@ static inline void skip_white_characters() {
  * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
  * @p INVALID_VALUE, jeżeli napotkany zostanie niespodziewany znak.
  */
-static inline io_error_t read_uint32_digits(char *buffer) {
+static io_error_t read_uint32_digits(char *buffer) {
     static const unsigned max_digits = 11;
     int ch;
     unsigned i = 0;
@@ -167,6 +167,8 @@ static inline unsigned get_command_arguments_count(char command) {
 }
 
 /** @brief Wczytuje argumenty komendy.
+ * Wczytuje argumenty komendy ze standardowego wejścia. W razie wystąpienia problemu
+ * pomija wszystkie znaki do końca wiersza.
  * @param[in] command    – znak identyfikujący komendę,
  * @param[out] args      – wskaźnik na tablicę argumentów (co najmniej 4 pola).
  * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
@@ -200,9 +202,8 @@ static io_error_t read_arguments(char command,
     return NO_ERROR;
 }
 
-io_error_t read_next_command(char *command,
-                             uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND],
-                             const char *allowed_commands) {
+io_error_t text_input_read_next_command(char *command, uint32_t *args,
+                                        const char *allowed_commands) {
     io_error_t error;
     if ((error = read_command_char(command, allowed_commands)) != NO_ERROR) {
         return error;

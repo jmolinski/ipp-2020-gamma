@@ -18,6 +18,6 @@
  * jeżeli wystąpił błąd alokacji pamięci, @p TERMINAL_ERROR jeżeli wystąpił błąd podczas
  * zmieniania parametrów terminala.
  */
-io_error_t run_interactive_mode(gamma_t *g);
+io_error_t interactive_run_mode(gamma_t *g);
 
 #endif /* INTERACTIVE_MODE_H */

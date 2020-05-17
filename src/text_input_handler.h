@@ -24,8 +24,7 @@
  * jeżeli wartości parametrów lub polecenie są niepoprawne, @p LINE_IGNORED,
  * jeżeli wiersz jest pusty lub zaczyna się znakiem #.
  */
-io_error_t read_next_command(char *command,
-                             uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND],
-                             const char *allowed_commands);
+io_error_t text_input_read_next_command(char *command, uint32_t *args,
+                                        const char *allowed_commands);
 
 #endif /* TEXT_INPUT_HANDLER_H */

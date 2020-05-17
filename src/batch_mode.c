@@ -89,7 +89,7 @@ static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     return NO_ERROR;
 }
 
-void run_batch_mode(gamma_t *g, unsigned long *line) {
+void batch_run_mode(gamma_t *g, unsigned long *line) {
     printf("OK %lu\n", *line); // Gra rozpoczęta prawidłowo.
 
     char command;
@@ -98,7 +98,7 @@ void run_batch_mode(gamma_t *g, unsigned long *line) {
 
     do {
         (*line)++;
-        error = read_next_command(&command, args, BATCH_COMMAND_IDENTIFIERS);
+        error = text_input_read_next_command(&command, args, BATCH_COMMAND_IDENTIFIERS);
         if (error == NO_ERROR) {
             error = run_command(g, command, args);
             if (error != NO_ERROR) {

@@ -23,15 +23,14 @@
  * @param[out] mode        – wskaźnik na znak oznaczający tryb gry (B lub I),
  * @param[in,out] line     – wskaźnik na aktualny numer wiersza wejścia.
  * @return Kod @p NO_ERROR jeżeli wczytane parametry są poprawne,
- * @p ENCOUNTERED_EOF, jeżeli dane na wejściu się skończyły (EOF), @p MEMORY_ERROR,
- * jeżeli wystąpił błąd alokacji pamięci.
+ * @p ENCOUNTERED_EOF, jeżeli dane na wejściu się skończyły (EOF).
  */
 static io_error_t create_game_struct(gamma_t **game, char *mode, unsigned long *line) {
     io_error_t error;
     uint32_t args[COMMAND_ARGUMENTS_UPPER_BOUND];
     do {
         (*line)++;
-        error = read_next_command(mode, args, GAME_MODE_IDENTIFIERS);
+        error = text_input_read_next_command(mode, args, GAME_MODE_IDENTIFIERS);
         if (error == NO_ERROR) {
             if (!gamma_game_new_arguments_valid(args[0], args[1], args[2], args[3])) {
                 error = INVALID_VALUE;
@@ -69,17 +68,14 @@ int main() {
     unsigned long line = 0;
 
     io_error_t error = create_game_struct(&game, &mode, &line);
-    if (error == MEMORY_ERROR) {
-        return 1;
-    } else if (error == ENCOUNTERED_EOF) {
+    if (error != NO_ERROR) {
         return 0;
     }
 
-    error = NO_ERROR;
     if (mode == 'B') {
-        run_batch_mode(game, &line);
+        batch_run_mode(game, &line);
     } else {
-        error = run_interactive_mode(game);
+        error = interactive_run_mode(game);
     }
 
     gamma_delete(game);
