@@ -108,7 +108,7 @@ static void board_print(gamma_t *g, uint32_t field_x, uint32_t field_y,
 static void rerender_screen(gamma_t *g, uint32_t field_x, uint32_t field_y,
                             uint32_t player, char *error_message) {
     printf(CLEAR_SCREEN);
-    printf(MOVE_CURSOR, 0, 0);
+    printf(MOVE_CURSOR, 1, 1);
 
     board_print(g, field_x, field_y, player);
 
