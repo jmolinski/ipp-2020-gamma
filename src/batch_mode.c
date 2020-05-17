@@ -16,17 +16,14 @@
 #define BATCH_COMMAND_IDENTIFIERS "mgbfqp"
 
 /** @brief Wykonuje gamma_move lub gamma_golden_move.
- * Weryfikuje poprawność przekazanych argumentów i wykonuje zadaną komendę.
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] command     – znak oznaczający typ komendy (m lub g),
  * @param[in] player      – numer gracza,
  * @param[in] x           – numer kolumny,
  * @param[in] y           – numer wiersza.
- * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p INVALID_VALUE,
- * jeżeli wartość któregoś z parametrów jest nieprawidłowa.
  */
-static io_error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t player,
-                                          uint32_t x, uint32_t y) {
+static void run_move_or_golden_move(gamma_t *g, char command, uint32_t player,
+                                    uint32_t x, uint32_t y) {
     bool move_performed;
     if (command == 'm') {
         move_performed = gamma_move(g, player, x, y);
@@ -34,8 +31,6 @@ static io_error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t pla
         move_performed = gamma_golden_move(g, player, x, y);
     }
     printf("%u\n", (unsigned)move_performed);
-
-    return NO_ERROR;
 }
 
 /** @brief Wykonuje gamma_free_fields, gamma_busy_fields lub gamma_golden_possible.
@@ -44,8 +39,7 @@ static io_error_t run_move_or_golden_move(gamma_t *g, char command, uint32_t pla
  * @param[in] command     – znak oznaczający typ komendy, (b, f lub q),
  * @param[in] player      – numer identyfikujący gracza.
  */
-static void run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
-                                                    uint32_t player) {
+static void run_one_argument_command(gamma_t *g, char command, uint32_t player) {
     uint64_t result;
     if (command == 'b') {
         result = gamma_busy_fields(g, player);
@@ -65,17 +59,15 @@ static void run_busy_free_fields_or_golden_possible(gamma_t *g, char command,
  * @param[in,out] g       – wskaźnik na strukturę przechowującą stan gry,
  * @param[in] command     – znak oznaczający typ komendy, (m, g, f, b, q lub p),
  * @param[in] args        – argumenty komendy.
- * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p ENCOUNTERED_EOF
- * jeżeli dane wejściowe kończą się przed napotkaniem znaku nowej linii,
- * @p INVALID_VALUE, jeżeli któryś z argumentów jest nieprawidłowy lub operacja się
- * nie powiedzie, jednak błąd jest niekrytyczny.
+ * @return Kod @p NO_ERROR jeżeli operacja przebiegła poprawnie, @p INVALID_VALUE,
+ * jeżeli któryś z argumentów jest nieprawidłowy lub operacja się nie powiedzie,
+ * jednak błąd jest niekrytyczny.
  */
 static io_error_t run_command(gamma_t *g, char command, uint32_t args[3]) {
     if (command == 'm' || command == 'g') {
-        return run_move_or_golden_move(g, command, args[0], args[1], args[2]);
+        run_move_or_golden_move(g, command, args[0], args[1], args[2]);
     } else if (command == 'b' || command == 'f' || command == 'q') {
-        run_busy_free_fields_or_golden_possible(g, command, args[0]);
-        return NO_ERROR;
+        run_one_argument_command(g, command, args[0]);
     } else {
         char *rendered_board = gamma_board(g);
         if (rendered_board == NULL) {
