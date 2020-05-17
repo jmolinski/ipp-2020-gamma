@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/** Ograniczenie górne liczby parametrów polecenia w batch mode */
 #define COMMAND_ARGUMENTS_UPPER_BOUND 4
 
 /** @brief Wczytuje parametry następnej komendy.

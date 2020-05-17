@@ -25,6 +25,9 @@
 /** Kod ASCII 91 - znak otwierający nawias kwadratowy - [ */
 #define OPENING_SQUARE_BRACKET 91
 
+/**
+ * Enum opisujący ostatnie znaki escape sequence oznaczającej jeden z klawiszy strzałek
+ */
 typedef enum arrow_key_sequence_last_character {
     ARROW_UP = 65,
     ARROW_DOWN = 66,
