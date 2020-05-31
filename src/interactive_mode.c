@@ -274,8 +274,8 @@ static io_error_t run_io_loop(gamma_t *g, char *error_message) {
  * @param[out] error_message  – wskaźnik na bufor znakowy, do którego zapisany zostanie
  *                              ewentualny komunikat błędu,
  * @param[in] game            – wskaźnik na strukturę przechowującą stan gry.
- * Kod @p NO_ERROR operacja została wykonana pomyślnie, @p TERMINAL_ERROR
- * jeżeli wywołanie systemowe zakończyło się błędem.
+ * Kod @p NO_ERROR jeżeli okno jest dostatecznie duże, @p TERMINAL_ERROR
+ * jeżeli wywołanie systemowe zakończyło się błędem lub terminal jest zbyt mały.
  */
 static inline io_error_t check_if_terminal_window_is_big_enough(char *error_message,
                                                                 const gamma_t *game) {
@@ -286,11 +286,12 @@ static inline io_error_t check_if_terminal_window_is_big_enough(char *error_mess
     }
     static unsigned const extra_rows_under_board = 4;
     const unsigned board_field_width =
-        snprintf(NULL, 0, "%" PRIu32, gamma_players_number(game));
+        snprintf(NULL, 0, "%" PRIu32, gamma_players_number(game)) + 1;
     if (ws.ws_row < gamma_board_height(game) + extra_rows_under_board ||
         ws.ws_col < gamma_board_width(game) * board_field_width) {
         sprintf(error_message, "Terminal size is too small to display the "
-                               "whole board. Please resize the window.");
+                               "whole board.");
+        return TERMINAL_ERROR;
     }
 
     return NO_ERROR;
@@ -417,9 +418,16 @@ io_error_t interactive_run_mode(gamma_t *g) {
 
     io_error_t error =
         adjust_terminal_settings(&old_settings, &new_settings, error_message, g);
-    if (error == NO_ERROR) {
-        error = run_io_loop(g, error_message);
+    if (error == TERMINAL_ERROR) {
+        restore_terminal_settings(&old_settings);
+        if (error_message[0] != '\0') {
+            printf(RED_TEXT "%s\n" RESET_COLORS, error_message);
+        }
+        return TERMINAL_ERROR;
     }
+
+    error = run_io_loop(g, error_message);
+
     io_error_t cleanup_error = restore_terminal_settings(&old_settings);
     if (error == NO_ERROR && cleanup_error == NO_ERROR) {
         error = print_game_summary(g);
