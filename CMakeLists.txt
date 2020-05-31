@@ -47,7 +47,7 @@ set(TEST_SOURCE_FILES
         src/batch_mode.h
         src/errors.h)
 
-add_executable(gamma_test EXCLUDE_FROM_ALL ${TEST_SOURCE_FILES})
+add_executable(test EXCLUDE_FROM_ALL ${TEST_SOURCE_FILES})
 
 # Dodajemy obsługę Doxygena: sprawdzamy, czy jest zainstalowany i jeśli tak to:
 find_package(Doxygen)

@@ -449,8 +449,8 @@ bool gamma_golden_move(gamma_t *g, uint32_t player, uint32_t x, uint32_t y) {
     uint32_t previous_player_index = previous_player % g->players_num;
 
     g->board[y][x].player = player;
-    bool areas_limit_exceeded = reindex_areas(g);
-    if (!areas_limit_exceeded) {
+    bool areas_limit_not_exceeded = reindex_areas(g);
+    if (!areas_limit_not_exceeded) {
         g->board[y][x].player = previous_player;
         reindex_areas(g);
         return false;
@@ -491,24 +491,55 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
     return g->players[player_index].border_empty_fields;
 }
 
+static bool can_attack_any_field_without_increasing_areas(gamma_t *g, uint32_t player) {
+    for (uint32_t row = 0; row < g->height; row++) {
+        for (uint32_t column = 0; column < g->width; column++) {
+            field_t *field = &g->board[row][column];
+            if (field->empty || field->player == player ||
+                !has_neighbor(g, column, row, player)) {
+                continue;
+            }
+
+            const uint32_t previous_player = field->player;
+            field->player = player;
+            bool areas_limit_not_exceeded = reindex_areas(g);
+            field->player = previous_player;
+            reindex_areas(g);
+            if (areas_limit_not_exceeded) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 bool gamma_golden_possible(gamma_t *g, uint32_t player) {
     if (g == NULL || player == 0 || player > g->players_num) {
         return false;
     }
 
     const uint32_t player_index = player % g->players_num;
-
     if (g->players[player_index].golden_move_done) {
         return false;
     }
 
+    bool other_players_have_no_fields = true;
     for (uint32_t p = 0; p < g->players_num; p++) {
         if (g->players[p].occupied_fields > 0 && p != player_index) {
-            return true;
+            other_players_have_no_fields = false;
+            break;
         }
     }
+    if (other_players_have_no_fields) {
+        return false;
+    }
 
-    return false;
+    if (g->players[player_index].areas < g->max_areas) {
+        return true;
+    }
+
+    return can_attack_any_field_without_increasing_areas(g, player);
 }
 
 /**

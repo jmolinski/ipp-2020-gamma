@@ -79,6 +79,7 @@ Gamma.cbp
 
 tests
 part1_tests
+part2_tests
 
 Doxyfile
 .clang-format
