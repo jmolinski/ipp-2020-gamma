@@ -491,6 +491,17 @@ uint64_t gamma_free_fields(gamma_t *g, uint32_t player) {
     return g->players[player_index].border_empty_fields;
 }
 
+/**
+ * @brief Sprawdza czy istnieje pole, na które gracz może wykonać złoty ruch.
+ * Zwraca informację czy istnieje takie pole zajęte przez innego gracza, na które gracz
+ * o zadanym numerze może wykonać ruch nie powodując tym przekroczenia przez
+ * któregokolwiek z graczy maksymalnej liczby dozwolonych obszarów.
+ * Wskaźnik @p g musi wskazywać na prawidłowo zainicjowaną strukturę gry.
+ * @param[in] g                    - wskaźnik na strukturę przechowującą stan gry,
+ * @param[out] player              - numer gracza wykonującego ruch.
+ * @return Wartość @p true, jeżeli istnieje pole, na które gracz może wykonać złoty
+ * ruch, w przeciwnym przypadku @p false.
+ */
 static bool can_attack_any_field_without_increasing_areas(gamma_t *g, uint32_t player) {
     for (uint32_t row = 0; row < g->height; row++) {
         for (uint32_t column = 0; column < g->width; column++) {
