@@ -47,7 +47,9 @@ set(TEST_SOURCE_FILES
         src/batch_mode.h
         src/errors.h)
 
+# Wskazujemy plik wykonywalny dla testów silnika.
 add_executable(test EXCLUDE_FROM_ALL ${TEST_SOURCE_FILES})
+set_target_properties(test PROPERTIES OUTPUT_NAME gamma_test)
 
 # Dodajemy obsługę Doxygena: sprawdzamy, czy jest zainstalowany i jeśli tak to:
 find_package(Doxygen)
