@@ -21,18 +21,18 @@
 /** Kod ASCII 4 wysyłany przy naciśnięciu klawiszy ctrl+d */
 #define END_OF_TRANSMISSION 4
 /** Kod ASCII 27 - znak escape */
-#define ESCAPE 27
+#define ESCAPE '\e'
 /** Kod ASCII 91 - znak otwierający nawias kwadratowy - [ */
-#define OPENING_SQUARE_BRACKET 91
+#define OPENING_SQUARE_BRACKET '['
 
 /**
  * Enum opisujący ostatnie znaki escape sequence oznaczającej jeden z klawiszy strzałek
  */
 typedef enum arrow_key_sequence_last_character {
-    ARROW_UP = 65,
-    ARROW_DOWN = 66,
-    ARROW_RIGHT = 67,
-    ARROW_LEFT = 68,
+    ARROW_UP = 'A',
+    ARROW_DOWN = 'B',
+    ARROW_RIGHT = 'C',
+    ARROW_LEFT = 'D',
 } arrow_key_sequence_last_character;
 
 /** ANSI escape code - wyczyszczenie bufora terminala. */
@@ -74,12 +74,11 @@ typedef enum arrow_key_sequence_last_character {
  */
 static void board_print(gamma_t *g, uint32_t field_x, uint32_t field_y,
                         uint32_t player) {
-    const int base_field_width = snprintf(NULL, 0, "%" PRIu32, gamma_players_number(g));
+    const int field_width = snprintf(NULL, 0, "%" PRIu32, gamma_players_number(g)) + 1;
     const uint32_t board_width = gamma_board_width(g);
 
     for (uint32_t y = gamma_board_height(g); y-- > 0;) {
         for (uint32_t x = 0; x < board_width; x++) {
-            int field_width = base_field_width + (x == 0 ? 0 : 1);
             int written_chars;
             char buffer[FIELD_WIDTH_UPPER_BOUND];
             uint32_t player_number;
